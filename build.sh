@@ -2,13 +2,13 @@
 set -euo pipefail
 SOURCE_URL="https://d2ol7oe51mr4n9.cloudfront.net/user_3HmatHWfJX4eivRE228JtuTRjuu/3b656b09-09b7-4742-a5fa-57049cefdc06.zip"
 curl -fL "$SOURCE_URL" -o /tmp/hefz-class-source.zip
-mkdir -p app
-unzip -q /tmp/hefz-class-source.zip -d app
-if [ -d app/app ]; then
-  shopt -s dotglob nullglob
-  mv app/app/* app/
-  shopt -u dotglob nullglob
-  rmdir app/app
+rm -rf /tmp/hefz-source-extract app
+mkdir -p /tmp/hefz-source-extract
+unzip -q /tmp/hefz-class-source.zip -d /tmp/hefz-source-extract
+if [ -d /tmp/hefz-source-extract/app ]; then
+  mv /tmp/hefz-source-extract/app app
+else
+  mv /tmp/hefz-source-extract app
 fi
 cd app
 npm install --legacy-peer-deps --no-audit --no-fund
