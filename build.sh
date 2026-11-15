@@ -5,7 +5,7 @@ curl -fL "$SOURCE_URL" -o /tmp/hefz-class-source.zip
 mkdir -p app
 unzip -q /tmp/hefz-class-source.zip -d app
 cd app
-npm ci --legacy-peer-deps --no-audit --no-fund
+npm install --legacy-peer-deps --no-audit --no-fund
 npm run build
 cd ..
 mkdir -p .vercel
