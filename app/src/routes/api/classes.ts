@@ -10,8 +10,19 @@ export const Route=createFileRoute("/api/classes")({server:{handlers:{
   const rows=await DB.prepare("SELECT c.id,c.name,c.description,u.display_name AS teacher_name FROM classes c JOIN class_members m ON m.class_id=c.id JOIN users u ON u.id=c.teacher_id WHERE m.user_id=? ORDER BY c.name").bind(user.id).all(); return Response.json({classes:rows.results});
  },
  POST:async({request})=>{
-  const user=await currentUser(request); if(!user||user.role!=="teacher")return jsonError("فقط معلم کلاس می‌تواند کلاس ایجاد کند.",403);
+  const user=await currentUser(request); if(!user)return jsonError("ابتدا وارد شوید.",401);
   const body=await request.json().catch(()=>null) as Record<string,unknown>|null;
+  if(body?.action==="join") {
+   if(user.role!=="admin")return jsonError("فقط مدیر اپلیکیشن می‌تواند با حساب خودش عضو کلاس شود.",403);
+   const classId=typeof body.classId==="string"?body.classId:"";
+   if(!classId)return jsonError("کلاس را انتخاب کنید.");
+   const {DB}=bindings();if(!DB)return jsonError("پایگاه داده آماده نیست.",503);
+   const cls=await DB.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first();
+   if(!cls)return jsonError("کلاس پیدا نشد.",404);
+   await DB.prepare("INSERT INTO class_members(class_id,user_id) VALUES(?,?) ON CONFLICT DO NOTHING").bind(classId,user.id).run();
+   return Response.json({joined:true});
+  }
+  if(user.role!=="teacher")return jsonError("فقط معلم کلاس می‌تواند کلاس ایجاد کند.",403);
   const name=typeof body?.name==="string"?body.name.trim().slice(0,100):"";
   const teacherId=user.id;
   if(!name||!teacherId)return jsonError("نام کلاس و معلم را مشخص کنید.");
