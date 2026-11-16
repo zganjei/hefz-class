@@ -101,8 +101,24 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
     if (existing.password_hash !== `google:${google.sub}`) return jsonError("این ایمیل قبلاً با گذرواژه ثبت شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
     user = existing;
   } else {
-    if (!invitation) return jsonError("برای ساخت حساب، ابتدا باید از مدیر دعوت‌نامه بگیرید.", 403);
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(invitation)));
+    // The one-time first-admin path is restricted to the pre-approved, verified owner email.
+    // It is available only while the users table is empty; all other users still need invitations.
+    const isFirstAdmin = email === "zeinab.ganjei@ericsson.com";
+    if (isFirstAdmin) {
+      const count = await DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
+      if (Number(count?.n ?? 0) !== 0) return jsonError("حساب مدیر اولیه قبلاً ایجاد شده است. برای ساخت حساب جدید باید دعوت‌نامه داشته باشید.", 403);
+      const id = crypto.randomUUID();
+      const name = (google.name || email.split("@")[0]).trim().slice(0,80);
+      try {
+        await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) SELECT ?,?,?,?,'admin' WHERE NOT EXISTS (SELECT 1 FROM users)")
+          .bind(id,email,name,`google:${google.sub}`).run();
+      } catch { return jsonError("ساخت حساب مدیر انجام نشد؛ دوباره وارد شوید.",409); }
+      const created = await DB.prepare("SELECT id,email,display_name,role FROM users WHERE email=? AND active=1").bind(email).first<SessionUser>();
+      if (!created || created.role !== "admin") return jsonError("راه‌اندازی مدیر انجام نشد؛ ممکن است حساب دیگری زودتر ساخته شده باشد.",409);
+      user = created;
+    } else {
+      if (!invitation) return jsonError("برای ساخت حساب، ابتدا باید از مدیر دعوت‌نامه بگیرید.", 403);
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(invitation)));
     const token = b64(digest);
     const invite = await DB.prepare("SELECT id,email,role,class_id FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null}>();
     if (!invite || invite.email.toLowerCase() !== email) return jsonError("دعوت‌نامه معتبر نیست، منقضی شده یا برای این ایمیل صادر نشده است.", 403);
@@ -114,6 +130,7 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
       await DB.prepare("UPDATE invitations SET used_at=? WHERE id=?").bind(new Date().toISOString(),invite.id).run();
     } catch { return jsonError("ساخت حساب انجام نشد؛ ممکن است دعوت‌نامه قبلاً استفاده شده باشد.",409); }
     user = {id,email,display_name:name,role:invite.role};
+    }
   }
   const session = crypto.randomUUID();
   await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(session,user.id,new Date(Date.now()+DAY*14*1000).toISOString()).run();
