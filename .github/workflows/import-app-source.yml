@@ -1,0 +1,66 @@
+name: Import application source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-app-source.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download and extract the source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_URL="https://d2ol7oe51mr4n9.cloudfront.net/user_3HmatHWfJX4eivRE228JtuTRjuu/33927fd3-a6c4-4916-9b63-04ac7ac03950.zip"
+          mkdir -p /tmp/hefz-source
+          curl --fail --location --retry 3 "$SOURCE_URL" -o /tmp/hefz-source.zip
+          unzip -q /tmp/hefz-source.zip -d /tmp/hefz-source
+          if [ -d /tmp/hefz-source/app ]; then
+            SOURCE_DIR="/tmp/hefz-source/app"
+          else
+            SOURCE_DIR="/tmp/hefz-source"
+          fi
+          test -f "$SOURCE_DIR/package.json"
+          test -d "$SOURCE_DIR/src"
+          rm -rf app
+          mkdir -p app
+          cp -a "$SOURCE_DIR"/. app/
+          printf '%s\n' 'node_modules/' '.vercel/' 'dist/' > app/.gitignore
+
+      - name: Use the checked-in source during Vercel builds
+        shell: bash
+        run: |
+          cat > build.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          cd app
+          npm install --legacy-peer-deps --no-audit --no-fund
+          npm run build
+          cd ..
+          mkdir -p .vercel
+          rm -rf .vercel/output
+          cp -a app/.vercel/output .vercel/output
+          EOF
+          chmod +x build.sh
+
+      - name: Commit application source to GitHub
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app build.sh
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git commit -m "Import application source into repository"
+            git push
+          fi
