@@ -101,9 +101,9 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
     if (existing.password_hash !== `google:${google.sub}`) return jsonError("این ایمیل قبلاً با گذرواژه ثبت شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
     user = existing;
   } else {
-    // The one-time first-admin path is restricted to the pre-approved, verified owner email.
-    // It is available only while the users table is empty; all other users still need invitations.
-    const isFirstAdmin = email === "zeinab.ganjei@ericsson.com";
+    // The first verified Google account becomes the app administrator.
+    // Every later account must use an invitation.
+    const isFirstAdmin = true;
     if (isFirstAdmin) {
       const count = await DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
       if (Number(count?.n ?? 0) !== 0) return jsonError("حساب مدیر اولیه قبلاً ایجاد شده است. برای ساخت حساب جدید باید دعوت‌نامه داشته باشید.", 403);
