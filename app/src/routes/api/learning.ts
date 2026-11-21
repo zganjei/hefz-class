@@ -71,8 +71,11 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
   }
   if (action === "submit_week") {
    const eid=String(body?.enrollmentId||""), wid=String(body?.weekId||"");
-   const e=await DB.prepare("SELECT id,course_id FROM course_enrollments WHERE id=? AND user_id=? AND active=1").bind(eid,user.id).first<any>();
+   const e=await DB.prepare("SELECT id,course_id,due_weekday FROM course_enrollments WHERE id=? AND user_id=? AND active=1").bind(eid,user.id).first<any>();
    if(!e)return jsonError("دوره پیدا نشد.",403);
+   const weekdayName=new Intl.DateTimeFormat("en-US",{timeZone:"Europe/Stockholm",weekday:"short"}).format(new Date());
+   const currentWeekday=({Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6} as Record<string,number>)[weekdayName];
+   if(currentWeekday<Number(e.due_weekday))return jsonError("تحویل حفظ از روز تعیین‌شده برای شما فعال می‌شود.");
    const week=await DB.prepare("SELECT id FROM course_weeks WHERE id=? AND course_id=?").bind(wid,e.course_id).first<any>();
    if(!week)return jsonError("هفته نامعتبر است.");
    const incomplete=await DB.prepare("SELECT COUNT(*) AS n FROM course_lessons l LEFT JOIN lesson_progress p ON p.lesson_id=l.id AND p.user_id=? WHERE l.week_id=? AND COALESCE(p.final_exam_passed,0)=0").bind(user.id,wid).first<any>();
