@@ -50,3 +50,24 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 .mobile-account-actions{display:flex;align-items:center;gap:8px}.mobile-logout{display:none;border:1px solid #e5e4d8;background:#f8f6ef;border-radius:9px;padding:7px 12px;color:#8a5148;font-size:11px}@media(max-width:720px){.mobile-logout{display:inline-flex;align-items:center;justify-content:center}}
 
 .auth-divider{display:flex;align-items:center;gap:10px;color:#a0a59b;font-size:10px;margin:18px 0 12px}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#e8e6dc;flex:1}.google-signin-button{display:flex;justify-content:center;min-height:42px}
+
+/* Razm learning path */
+.learning-panel,.course-management{display:flex;flex-direction:column;gap:18px}
+.course-card{border:1px solid #e6e7dc;border-radius:16px;background:#fffdf8;padding:18px}
+.course-card>h3{color:#24543e;margin:0 0 8px;font-size:16px}
+.course-week{margin-top:15px;padding:15px;border-radius:12px;background:#f6f6ee;border:1px solid #e8e8dc}
+.course-week>h3{font-size:13px;color:#48684f;margin:0 0 6px}
+.lesson-card{margin-top:12px;padding:15px;background:#fff;border:1px solid #e8e7dc;border-radius:12px}
+.lesson-card h4{font-size:12px;color:#324d3b;margin:0 0 10px}
+.lesson-card h5{font-size:11px;color:#886a38;margin:0 0 8px}
+.lesson-video{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:10px;background:#17251d;margin:12px 0}
+.lesson-video iframe{width:100%;height:100%;border:0}
+.lesson-quiz{border-top:1px solid #efeee5;padding:12px 0;margin-top:12px}
+.lesson-quiz label{display:block;margin:10px 0;color:#526257;font-size:10px}
+.lesson-quiz input,.lesson-quiz select{display:block;width:100%;margin-top:6px}
+.course-management .report-form{border:1px solid #e8e7dc;border-radius:12px;padding:15px;background:#fffdf8}
+.course-management .report-form h3{font-size:13px;color:#24543e;margin:0 0 12px}
+.course-management .report-form button,.lesson-card button{border:0;border-radius:9px;background:#24543e;color:#fffdf5;padding:9px 14px;font-size:10px;margin-top:8px}
+.course-management .report-form button:disabled{opacity:.5}
+.course-management .simple-row{border-top:1px solid #e8e7dc;padding:12px 0}
+@media(max-width:720px){.course-card{padding:12px}.course-week{padding:10px}.lesson-card{padding:11px}.course-management .report-form{padding:11px}}
