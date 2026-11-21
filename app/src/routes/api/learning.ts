@@ -40,7 +40,16 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    }
    courses.push({...e,weeks:weekData});
   }
-  return Response.json({courses});
+  let managedCourses:any[]=[];
+  if(user.role==="admin"||user.role==="teacher"){
+   const mc=user.role==="admin"?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare("SELECT id,title,description,class_id FROM courses WHERE created_by=? ORDER BY created_at DESC").bind(user.id).all<any>();
+   for(const c of mc.results||[]){
+    const weeks=await DB.prepare("SELECT id,week_number,title,due_weekday FROM course_weeks WHERE course_id=? ORDER BY week_number").bind(c.id).all<any>();
+    const members=await DB.prepare("SELECT u.id,u.display_name,u.email FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role IN ('memorizer','admin') ORDER BY u.display_name").bind(c.class_id).all<any>();
+    managedCourses.push({...c,weeks:weeks.results||[],members:members.results||[]});
+   }
+  }
+  return Response.json({courses,managedCourses});
  },
  POST: async ({ request }) => {
   const user = await currentUser(request);
