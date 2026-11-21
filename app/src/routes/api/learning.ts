@@ -69,6 +69,46 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    await DB.prepare("INSERT INTO weekly_submissions(id,enrollment_id,week_id,note) VALUES(?,?,?,?) ON CONFLICT(enrollment_id,week_id) DO UPDATE SET status='pending',note=excluded.note,submitted_at=CURRENT_TIMESTAMP,feedback='',reviewed_by=NULL,reviewed_at=NULL").bind(id,eid,wid,String(body?.note||"").slice(0,1000)).run();
    return Response.json({submitted:true});
   }
+  if(action==="create_course"||action==="create_week"||action==="create_lesson"||action==="create_question"||action==="enroll"){
+   if(!["admin","teacher"].includes(user.role))return jsonError("فقط معلم یا مدیر می‌تواند محتوا مدیریت کند.",403);
+   if(action==="create_course"){
+    const classId=String(body?.classId||""),title=String(body?.title||"").trim().slice(0,120);
+    if(!classId||!title)return jsonError("کلاس و عنوان دوره را مشخص کنید.");
+    const cls=await DB.prepare("SELECT id,teacher_id FROM classes WHERE id=?").bind(classId).first<any>();
+    if(!cls||(user.role==="teacher"&&cls.teacher_id!==user.id))return jsonError("کلاس پیدا نشد یا دسترسی ندارید.",403);
+    const id=crypto.randomUUID();await DB.prepare("INSERT INTO courses(id,title,description,created_by,class_id) VALUES(?,?,?,?,?)").bind(id,title,String(body?.description||"").slice(0,500),user.id,classId).run();return Response.json({id},{status:201});
+   }
+   if(action==="create_week"){
+    const courseId=String(body?.courseId||""),num=Number(body?.weekNumber),title=String(body?.title||"").trim(),weekday=Number(body?.dueWeekday??5);
+    const c=await DB.prepare("SELECT id,class_id,created_by FROM courses WHERE id=?").bind(courseId).first<any>();
+    if(!c||(user.role==="teacher"&&c.created_by!==user.id))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
+    if(!Number.isInteger(num)||num<1||!title||!Number.isInteger(weekday)||weekday<0||weekday>6)return jsonError("اطلاعات هفته نامعتبر است.");
+    const id=crypto.randomUUID();await DB.prepare("INSERT INTO course_weeks(id,course_id,week_number,title,due_weekday) VALUES(?,?,?,?,?)").bind(id,courseId,num,title,weekday).run();return Response.json({id},{status:201});
+   }
+   if(action==="create_lesson"){
+    const weekId=String(body?.weekId||""),order=Number(body?.lessonOrder),title=String(body?.title||"").trim(),surah=String(body?.surah||"").trim(),from=Number(body?.fromAyah),to=Number(body?.toAyah),video=String(body?.videoUrl||"").trim();
+    const w=await DB.prepare("SELECT w.id,c.created_by FROM course_weeks w JOIN courses c ON c.id=w.course_id WHERE w.id=?").bind(weekId).first<any>();
+    if(!w||(user.role==="teacher"&&w.created_by!==user.id))return jsonError("هفته پیدا نشد یا دسترسی ندارید.",403);
+    if(!title||!surah||!Number.isInteger(order)||order<1||!Number.isInteger(from)||!Number.isInteger(to)||from<1||to<from||!/^https:\/\//.test(video))return jsonError("عنوان، سوره، آیات و لینک HTTPS ویدئو را کامل کنید.");
+    const id=crypto.randomUUID();await DB.prepare("INSERT INTO course_lessons(id,week_id,lesson_order,title,surah,from_ayah,to_ayah,video_url) VALUES(?,?,?,?,?,?,?,?)").bind(id,weekId,order,title,surah,from,to,video).run();return Response.json({id},{status:201});
+   }
+   if(action==="create_question"){
+    const lessonId=String(body?.lessonId||""),type=String(body?.questionType||""),prompt=String(body?.prompt||"").trim(),answer=String(body?.answerKey||"").trim();
+    const l=await DB.prepare("SELECT l.id,c.created_by FROM course_lessons l JOIN course_weeks w ON w.id=l.week_id JOIN courses c ON c.id=w.course_id WHERE l.id=?").bind(lessonId).first<any>();
+    if(!l||(user.role==="teacher"&&l.created_by!==user.id))return jsonError("درس پیدا نشد یا دسترسی ندارید.",403);
+    if(!["hifz","tadabbur","vocabulary","final"].includes(type)||!prompt||!answer)return jsonError("نوع، متن سوال و پاسخ صحیح را وارد کنید.");
+    const id=crypto.randomUUID();await DB.prepare("INSERT INTO lesson_questions(id,lesson_id,question_type,prompt,choices,answer_key,explanation,points) VALUES(?,?,?, ?,?::jsonb,?,?,?)").bind(id,lessonId,type,prompt,JSON.stringify(Array.isArray(body?.choices)?body.choices:[]),answer,String(body?.explanation||"").slice(0,500),Math.max(1,Number(body?.points||1))).run();return Response.json({id},{status:201});
+   }
+   if(action==="enroll"){
+    const courseId=String(body?.courseId||""),studentId=String(body?.userId||""),weekday=Number(body?.dueWeekday??5);
+    const c=await DB.prepare("SELECT id,class_id,created_by FROM courses WHERE id=? AND active=1").bind(courseId).first<any>();
+    if(!c||(user.role==="teacher"&&c.created_by!==user.id))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
+    const member=await DB.prepare("SELECT 1 FROM class_members WHERE class_id=? AND user_id=?").bind(c.class_id,studentId).first<any>();
+    if(!member)return jsonError("حافظ باید ابتدا عضو کلاس دوره باشد.");
+    if(!Number.isInteger(weekday)||weekday<0||weekday>6)return jsonError("روز تحویل نامعتبر است.");
+    const id=crypto.randomUUID();await DB.prepare("INSERT INTO course_enrollments(id,course_id,class_id,user_id,due_weekday) VALUES(?,?,?,?,?) ON CONFLICT(course_id,user_id) DO UPDATE SET due_weekday=excluded.due_weekday,active=1").bind(id,courseId,c.class_id,studentId,weekday).run();return Response.json({enrolled:true},{status:201});
+   }
+  }
   const lessonId=typeof body?.lessonId==="string"?body.lessonId:"";
   if(!lessonId)return jsonError("درس را مشخص کنید.");
   const lesson=await DB.prepare("SELECT l.id,l.week_id,l.lesson_order,w.course_id FROM course_lessons l JOIN course_weeks w ON w.id=l.week_id JOIN course_enrollments e ON e.course_id=w.course_id WHERE l.id=? AND e.user_id=? AND e.active=1").bind(lessonId,user.id).first<any>();
