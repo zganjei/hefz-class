@@ -32,7 +32,8 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
      const qs = await DB.prepare("SELECT question_type,MAX(passed) AS passed FROM quiz_attempts WHERE user_id=? AND lesson_id=? GROUP BY question_type").bind(user.id,l.id).all<any>();
      const quizStatus: Record<string,boolean> = {};
      for (const q of qs.results || []) quizStatus[q.question_type] = !!q.passed;
-     const questions=await DB.prepare("SELECT id,question_type,prompt,choices,points FROM lesson_questions WHERE lesson_id=? ORDER BY question_type,id").bind(l.id).all<any>();\n     lessonData.push({...l, video_url: unlocked ? l.video_url : null, unlocked, progress: progress || {video_completed:0,practice_completed:0,final_exam_passed:0}, quizStatus, questions: unlocked ? (questions.results||[]) : []});
+     const questions=await DB.prepare("SELECT id,question_type,prompt,choices,points FROM lesson_questions WHERE lesson_id=? ORDER BY question_type,id").bind(l.id).all<any>();
+     lessonData.push({...l, video_url: unlocked ? l.video_url : null, unlocked, progress: progress || {video_completed:0,practice_completed:0,final_exam_passed:0}, quizStatus, questions: unlocked ? (questions.results||[]) : []});
     }
     const submission = await DB.prepare("SELECT status,feedback,submitted_at FROM weekly_submissions WHERE enrollment_id=? AND week_id=?").bind(e.id,w.id).first<any>();
     weekData.push({...w, lessons:lessonData, submission:submission || null});
