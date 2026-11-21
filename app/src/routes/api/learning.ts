@@ -45,8 +45,10 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    const mc=user.role==="admin"?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare("SELECT id,title,description,class_id FROM courses WHERE created_by=? ORDER BY created_at DESC").bind(user.id).all<any>();
    for(const c of mc.results||[]){
     const weeks=await DB.prepare("SELECT id,week_number,title,due_weekday FROM course_weeks WHERE course_id=? ORDER BY week_number").bind(c.id).all<any>();
+    const weekDetails=[];
+    for(const w of weeks.results||[]){const lessons=await DB.prepare("SELECT id,lesson_order,title,surah,from_ayah,to_ayah FROM course_lessons WHERE week_id=? ORDER BY lesson_order").bind(w.id).all<any>();weekDetails.push({...w,lessons:lessons.results||[]});}
     const members=await DB.prepare("SELECT u.id,u.display_name,u.email FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role IN ('memorizer','admin') ORDER BY u.display_name").bind(c.class_id).all<any>();
-    managedCourses.push({...c,weeks:weeks.results||[],members:members.results||[]});
+    managedCourses.push({...c,weeks:weekDetails,members:members.results||[]});
    }
   }
   return Response.json({courses,managedCourses});
