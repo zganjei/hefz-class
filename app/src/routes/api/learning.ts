@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
  },
  POST: async ({ request }) => {
   const user = await currentUser(request);
-  if (!user || !["admin","memorizer"].includes(user.role)) return jsonError("فقط حافظ می‌تواند مسیر آموزشی را پیش ببرد.",403);
+  if (!user || !["admin","teacher","memorizer"].includes(user.role)) return jsonError("دسترسی ندارید.",403);
   const body = await request.json().catch(()=>null) as Record<string,any> | null;
   const action = body?.action;
   const { DB } = bindings();
