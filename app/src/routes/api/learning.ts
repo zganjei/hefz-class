@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 
-export const Route = createFileRoute("/api/learning")({ server: { handlers: {
+export const Route = createFileRoute("/api/learning" as any)({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request);
   if (!user) return jsonError("ابتدا وارد شوید.", 401);
