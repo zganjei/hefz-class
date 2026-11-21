@@ -48,7 +48,8 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
     const weekDetails=[];
     for(const w of weeks.results||[]){const lessons=await DB.prepare("SELECT id,lesson_order,title,surah,from_ayah,to_ayah FROM course_lessons WHERE week_id=? ORDER BY lesson_order").bind(w.id).all<any>();weekDetails.push({...w,lessons:lessons.results||[]});}
     const members=await DB.prepare("SELECT u.id,u.display_name,u.email FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role IN ('memorizer','admin') ORDER BY u.display_name").bind(c.class_id).all<any>();
-    managedCourses.push({...c,weeks:weekDetails,members:members.results||[]});
+    const submissions=await DB.prepare("SELECT s.id,s.status,s.note,s.submitted_at,s.feedback,u.display_name,w.week_number,w.title AS week_title FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id JOIN users u ON u.id=e.user_id JOIN course_weeks w ON w.id=s.week_id WHERE e.course_id=? ORDER BY s.submitted_at DESC LIMIT 50").bind(c.id).all<any>();
+    managedCourses.push({...c,weeks:weekDetails,members:members.results||[],submissions:submissions.results||[]});
    }
   }
   return Response.json({courses,managedCourses});
