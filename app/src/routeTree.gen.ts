@@ -14,8 +14,10 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiAssignmentsRouteImport } from './routes/api/assignments'
 import { Route as ApiBootstrapRouteImport } from './routes/api/bootstrap'
+import { Route as ApiClassTeachersRouteImport } from './routes/api/class-teachers'
 import { Route as ApiClassesRouteImport } from './routes/api/classes'
 import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
+import { Route as ApiLearningRouteImport } from './routes/api/learning'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
@@ -48,6 +50,11 @@ const ApiBootstrapRoute = ApiBootstrapRouteImport.update({
   path: '/api/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiClassTeachersRoute = ApiClassTeachersRouteImport.update({
+  id: '/api/class-teachers',
+  path: '/api/class-teachers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiClassesRoute = ApiClassesRouteImport.update({
   id: '/api/classes',
   path: '/api/classes',
@@ -56,6 +63,11 @@ const ApiClassesRoute = ApiClassesRouteImport.update({
 const ApiInvitationsRoute = ApiInvitationsRouteImport.update({
   id: '/api/invitations',
   path: '/api/invitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearningRoute = ApiLearningRouteImport.update({
+  id: '/api/learning',
+  path: '/api/learning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReportsRoute = ApiReportsRouteImport.update({
@@ -95,8 +107,10 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
+  '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
   '/api/invitations': typeof ApiInvitationsRoute
+  '/api/learning': typeof ApiLearningRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -110,8 +124,10 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
+  '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
   '/api/invitations': typeof ApiInvitationsRoute
+  '/api/learning': typeof ApiLearningRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -126,8 +142,10 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
+  '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
   '/api/invitations': typeof ApiInvitationsRoute
+  '/api/learning': typeof ApiLearningRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -143,8 +161,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/assignments'
     | '/api/bootstrap'
+    | '/api/class-teachers'
     | '/api/classes'
     | '/api/invitations'
+    | '/api/learning'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -158,8 +178,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/assignments'
     | '/api/bootstrap'
+    | '/api/class-teachers'
     | '/api/classes'
     | '/api/invitations'
+    | '/api/learning'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -173,8 +195,10 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/assignments'
     | '/api/bootstrap'
+    | '/api/class-teachers'
     | '/api/classes'
     | '/api/invitations'
+    | '/api/learning'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -189,8 +213,10 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiAssignmentsRoute: typeof ApiAssignmentsRoute
   ApiBootstrapRoute: typeof ApiBootstrapRoute
+  ApiClassTeachersRoute: typeof ApiClassTeachersRoute
   ApiClassesRoute: typeof ApiClassesRoute
   ApiInvitationsRoute: typeof ApiInvitationsRoute
+  ApiLearningRoute: typeof ApiLearningRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
@@ -235,6 +261,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/class-teachers': {
+      id: '/api/class-teachers'
+      path: '/api/class-teachers'
+      fullPath: '/api/class-teachers'
+      preLoaderRoute: typeof ApiClassTeachersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/classes': {
       id: '/api/classes'
       path: '/api/classes'
@@ -247,6 +280,13 @@ declare module '@tanstack/react-router' {
       path: '/api/invitations'
       fullPath: '/api/invitations'
       preLoaderRoute: typeof ApiInvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learning': {
+      id: '/api/learning'
+      path: '/api/learning'
+      fullPath: '/api/learning'
+      preLoaderRoute: typeof ApiLearningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reports': {
@@ -312,8 +352,10 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiAssignmentsRoute: ApiAssignmentsRoute,
   ApiBootstrapRoute: ApiBootstrapRoute,
+  ApiClassTeachersRoute: ApiClassTeachersRoute,
   ApiClassesRoute: ApiClassesRoute,
   ApiInvitationsRoute: ApiInvitationsRoute,
+  ApiLearningRoute: ApiLearningRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,

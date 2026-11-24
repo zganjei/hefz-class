@@ -1,4 +1,5 @@
 import { bindings } from "./bindings.server";
+import { canManageClass } from "./access.server";
 
 const encoder = new TextEncoder();
 const DAY = 60 * 60 * 24;
@@ -28,6 +29,14 @@ async function verifyPassword(password: string, stored: string) {
   const expected = fromB64(hashText);
   if (bits.length !== expected.length) return false;
   let diff = 0; for (let i = 0; i < bits.length; i++) diff |= bits[i] ^ expected[i]; return diff === 0;
+}
+
+type InviteRow = { id: string; email: string; role: Role; class_id: string | null; created_by: string };
+// Teachers invited to a class become class teachers (class_teachers); learners become class members.
+async function attachInviteToClass(DB: NonNullable<ReturnType<typeof bindings>["DB"]>, invite: InviteRow, userId: string) {
+  if (!invite.class_id) return;
+  if (invite.role === "teacher") await DB.prepare("INSERT INTO class_teachers (class_id,user_id,added_by) VALUES (?,?,?) ON CONFLICT DO NOTHING").bind(invite.class_id, userId, invite.created_by).run();
+  else await DB.prepare("INSERT INTO class_members (class_id,user_id) VALUES (?,?) ON CONFLICT DO NOTHING").bind(invite.class_id, userId).run();
 }
 export function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -64,13 +73,13 @@ export async function registerWithInvite(request: Request, body: Record<string, 
   if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 10 || password.length > 128 || !invitation) return jsonError("اطلاعات را بررسی کنید. گذرواژه باید دست‌کم ۱۰ نویسه باشد.");
   const tokenHash = await crypto.subtle.digest("SHA-256", encoder.encode(invitation));
   const token = b64(new Uint8Array(tokenHash));
-  const invite = await DB.prepare("SELECT id,email,role,class_id FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null}>();
+  const invite = await DB.prepare("SELECT id,email,role,class_id,created_by FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null;created_by:string}>();
   if (!invite || invite.email.toLowerCase() !== email) return jsonError("دعوت‌نامه معتبر نیست یا منقضی شده است.", 403);
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
   try {
     await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,?)").bind(id,email,name,passwordHash,invite.role).run();
-    if (invite.class_id) await DB.prepare("INSERT INTO class_members (class_id,user_id) VALUES (?,?)").bind(invite.class_id,id).run();
+    await attachInviteToClass(DB, invite, id);
     await DB.prepare("UPDATE invitations SET used_at=? WHERE id=?").bind(new Date().toISOString(),invite.id).run();
   } catch {
     return jsonError("این ایمیل قبلاً ثبت شده یا دعوت‌نامه قابل استفاده نیست.",409);
@@ -120,13 +129,13 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
       if (!invitation) return jsonError("برای ساخت حساب، ابتدا باید از مدیر دعوت‌نامه بگیرید.", 403);
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(invitation)));
     const token = b64(digest);
-    const invite = await DB.prepare("SELECT id,email,role,class_id FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null}>();
+    const invite = await DB.prepare("SELECT id,email,role,class_id,created_by FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null;created_by:string}>();
     if (!invite || invite.email.toLowerCase() !== email) return jsonError("دعوت‌نامه معتبر نیست، منقضی شده یا برای این ایمیل صادر نشده است.", 403);
     const id = crypto.randomUUID();
     const name = (google.name || email.split("@")[0]).trim().slice(0,80);
     try {
       await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,?)").bind(id,email,name,`google:${google.sub}`,invite.role).run();
-      if (invite.class_id) await DB.prepare("INSERT INTO class_members (class_id,user_id) VALUES (?,?)").bind(invite.class_id,id).run();
+      await attachInviteToClass(DB, invite, id);
       await DB.prepare("UPDATE invitations SET used_at=? WHERE id=?").bind(new Date().toISOString(),invite.id).run();
     } catch { return jsonError("ساخت حساب انجام نشد؛ ممکن است دعوت‌نامه قبلاً استفاده شده باشد.",409); }
     user = {id,email,display_name:name,role:invite.role};
@@ -147,8 +156,8 @@ export async function createInvitation(request: Request, body: Record<string, un
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["teacher","memorizer"].includes(String(role))) return jsonError("ایمیل یا نقش نامعتبر است.");
   if (user.role === "teacher" && role !== "memorizer") return jsonError("معلم فقط می‌تواند حافظ دعوت کند.",403);
   if (classId) {
-    const owned = await DB!.prepare("SELECT id FROM classes WHERE id=? AND teacher_id=?").bind(classId,user.id).first();
-    if (user.role === "teacher" && !owned) return jsonError("کلاس متعلق به شما نیست.",403);
+    if (user.role === "teacher" && !(await canManageClass(DB!, user, classId))) return jsonError("کلاس متعلق به شما نیست.",403);
+    if (user.role === "admin" && !(await DB!.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first())) return jsonError("کلاس پیدا نشد.",404);
   }
   const raw = b64(crypto.getRandomValues(new Uint8Array(32)));
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(raw)));

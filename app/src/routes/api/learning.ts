@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
+import { canManageClass, canManageCourseRow, TEACHES_CLASS_SQL } from "../../lib/access.server";
 
 export const Route = createFileRoute("/api/learning")({ server: { handlers: {
  GET: async ({ request }) => {
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
   }
   let managedCourses:any[]=[];
   if(user.role==="admin"||user.role==="teacher"){
-   const mc=user.role==="admin"?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare("SELECT id,title,description,class_id FROM courses WHERE created_by=? ORDER BY created_at DESC").bind(user.id).all<any>();
+   const mc=user.role==="admin"?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare(`SELECT co.id,co.title,co.description,co.class_id FROM courses co WHERE co.class_id IN (SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}) OR (co.class_id IS NULL AND co.created_by=?) ORDER BY co.created_at DESC`).bind(user.id,user.id,user.id).all<any>();
    for(const c of mc.results||[]){
     const weeks=await DB.prepare("SELECT id,week_number,title,due_weekday FROM course_weeks WHERE course_id=? ORDER BY week_number").bind(c.id).all<any>();
     const weekDetails=[];
@@ -65,8 +66,8 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    if (!["admin","teacher"].includes(user.role)) return jsonError("دسترسی ندارید.",403);
    const sid = String(body?.submissionId || ""), status = body?.status;
    if (!sid || !["approved","needs_revision"].includes(status)) return jsonError("درخواست نامعتبر است.");
-   const row = await DB.prepare("SELECT s.id,c.teacher_id FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id JOIN classes c ON c.id=e.class_id WHERE s.id=?").bind(sid).first<any>();
-   if (!row || (user.role==="teacher" && row.teacher_id!==user.id)) return jsonError("تحویل پیدا نشد یا دسترسی ندارید.",403);
+   const row = await DB.prepare("SELECT s.id,e.class_id FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE s.id=?").bind(sid).first<any>();
+   if (!row || !(await canManageClass(DB,user,row.class_id))) return jsonError("تحویل پیدا نشد یا دسترسی ندارید.",403);
    await DB.prepare("UPDATE weekly_submissions SET status=?,feedback=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,String(body?.feedback||"").slice(0,1000),user.id,sid).run();
    return Response.json({reviewed:true});
   }
@@ -90,35 +91,34 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    if(action==="create_course"){
     const classId=String(body?.classId||""),title=String(body?.title||"").trim().slice(0,120);
     if(!classId||!title)return jsonError("کلاس و عنوان دوره را مشخص کنید.");
-    const cls=await DB.prepare("SELECT id,teacher_id FROM classes WHERE id=?").bind(classId).first<any>();
-    if(!cls||(user.role==="teacher"&&cls.teacher_id!==user.id))return jsonError("کلاس پیدا نشد یا دسترسی ندارید.",403);
+    if(!(await canManageClass(DB,user,classId)))return jsonError("کلاس پیدا نشد یا دسترسی ندارید.",403);
     const id=crypto.randomUUID();await DB.prepare("INSERT INTO courses(id,title,description,created_by,class_id) VALUES(?,?,?,?,?)").bind(id,title,String(body?.description||"").slice(0,500),user.id,classId).run();return Response.json({id},{status:201});
    }
    if(action==="create_week"){
     const courseId=String(body?.courseId||""),num=Number(body?.weekNumber),title=String(body?.title||"").trim(),weekday=Number(body?.dueWeekday??5);
     const c=await DB.prepare("SELECT id,class_id,created_by FROM courses WHERE id=?").bind(courseId).first<any>();
-    if(!c||(user.role==="teacher"&&c.created_by!==user.id))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
+    if(!c||!(await canManageCourseRow(DB,user,c)))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
     if(!Number.isInteger(num)||num<1||!title||!Number.isInteger(weekday)||weekday<0||weekday>6)return jsonError("اطلاعات هفته نامعتبر است.");
     const id=crypto.randomUUID();await DB.prepare("INSERT INTO course_weeks(id,course_id,week_number,title,due_weekday) VALUES(?,?,?,?,?)").bind(id,courseId,num,title,weekday).run();return Response.json({id},{status:201});
    }
    if(action==="create_lesson"){
     const weekId=String(body?.weekId||""),order=Number(body?.lessonOrder),title=String(body?.title||"").trim(),surah=String(body?.surah||"").trim(),from=Number(body?.fromAyah),to=Number(body?.toAyah),video=String(body?.videoUrl||"").trim();
-    const w=await DB.prepare("SELECT w.id,c.created_by FROM course_weeks w JOIN courses c ON c.id=w.course_id WHERE w.id=?").bind(weekId).first<any>();
-    if(!w||(user.role==="teacher"&&w.created_by!==user.id))return jsonError("هفته پیدا نشد یا دسترسی ندارید.",403);
+    const w=await DB.prepare("SELECT w.id,c.class_id,c.created_by FROM course_weeks w JOIN courses c ON c.id=w.course_id WHERE w.id=?").bind(weekId).first<any>();
+    if(!w||!(await canManageCourseRow(DB,user,w)))return jsonError("هفته پیدا نشد یا دسترسی ندارید.",403);
     if(!title||!surah||!Number.isInteger(order)||order<1||!Number.isInteger(from)||!Number.isInteger(to)||from<1||to<from||!/^https:\/\//.test(video))return jsonError("عنوان، سوره، آیات و لینک HTTPS ویدئو را کامل کنید.");
     const id=crypto.randomUUID();await DB.prepare("INSERT INTO course_lessons(id,week_id,lesson_order,title,surah,from_ayah,to_ayah,video_url) VALUES(?,?,?,?,?,?,?,?)").bind(id,weekId,order,title,surah,from,to,video).run();return Response.json({id},{status:201});
    }
    if(action==="create_question"){
     const lessonId=String(body?.lessonId||""),type=String(body?.questionType||""),prompt=String(body?.prompt||"").trim(),answer=String(body?.answerKey||"").trim();
-    const l=await DB.prepare("SELECT l.id,c.created_by FROM course_lessons l JOIN course_weeks w ON w.id=l.week_id JOIN courses c ON c.id=w.course_id WHERE l.id=?").bind(lessonId).first<any>();
-    if(!l||(user.role==="teacher"&&l.created_by!==user.id))return jsonError("درس پیدا نشد یا دسترسی ندارید.",403);
+    const l=await DB.prepare("SELECT l.id,c.class_id,c.created_by FROM course_lessons l JOIN course_weeks w ON w.id=l.week_id JOIN courses c ON c.id=w.course_id WHERE l.id=?").bind(lessonId).first<any>();
+    if(!l||!(await canManageCourseRow(DB,user,l)))return jsonError("درس پیدا نشد یا دسترسی ندارید.",403);
     if(!["hifz","tadabbur","vocabulary","final"].includes(type)||!prompt||!answer)return jsonError("نوع، متن سوال و پاسخ صحیح را وارد کنید.");
     const id=crypto.randomUUID();await DB.prepare("INSERT INTO lesson_questions(id,lesson_id,question_type,prompt,choices,answer_key,explanation,points) VALUES(?,?,?, ?,?::jsonb,?,?,?)").bind(id,lessonId,type,prompt,JSON.stringify(Array.isArray(body?.choices)?body.choices:[]),answer,String(body?.explanation||"").slice(0,500),Math.max(1,Number(body?.points||1))).run();return Response.json({id},{status:201});
    }
    if(action==="enroll"){
     const courseId=String(body?.courseId||""),studentId=String(body?.userId||""),weekday=Number(body?.dueWeekday??5);
     const c=await DB.prepare("SELECT id,class_id,created_by FROM courses WHERE id=? AND active=1").bind(courseId).first<any>();
-    if(!c||(user.role==="teacher"&&c.created_by!==user.id))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
+    if(!c||!(await canManageCourseRow(DB,user,c)))return jsonError("دوره پیدا نشد یا دسترسی ندارید.",403);
     const member=await DB.prepare("SELECT 1 FROM class_members WHERE class_id=? AND user_id=?").bind(c.class_id,studentId).first<any>();
     if(!member)return jsonError("حافظ باید ابتدا عضو کلاس دوره باشد.");
     if(!Number.isInteger(weekday)||weekday<0||weekday>6)return jsonError("روز تحویل نامعتبر است.");
@@ -153,7 +153,7 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    const answers=body?.answers&&typeof body.answers==="object"?body.answers:{};
    let score=0,max=0;for(const q of questions.results){const points=Number(q.points||1);max+=points;if(String(answers[q.id]??"").trim()===String(q.answer_key).trim())score+=points;}
    const passed=score>=Math.ceil(max*0.8);
-   await DB.prepare("INSERT INTO quiz_attempts(id,user_id,lesson_id,question_type,score,max_score,passed,answers) VALUES(?,?,?,?,?,?,?,?::jsonb)").bind(crypto.randomUUID(),user.id,lessonId,type,score,max,passed,JSON.stringify(answers)).run();
+   await DB.prepare("INSERT INTO quiz_attempts(id,user_id,lesson_id,question_type,score,max_score,passed,answers) VALUES(?,?,?,?,?,?,?,?::jsonb)").bind(crypto.randomUUID(),user.id,lessonId,type,score,max,passed?1:0,JSON.stringify(answers)).run();
    if(type==="final"&&passed)await DB.prepare("INSERT INTO lesson_progress(user_id,lesson_id,final_exam_passed,completed_at) VALUES(?,?,1,CURRENT_TIMESTAMP) ON CONFLICT(user_id,lesson_id) DO UPDATE SET final_exam_passed=1,completed_at=CURRENT_TIMESTAMP").bind(user.id,lessonId).run();
    return Response.json({score,maxScore:max,passed,threshold:80});
   }
