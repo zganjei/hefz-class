@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
+import { TEACHES_CLASS_SQL } from "../../lib/access.server";
 export const Route=createFileRoute("/api/reports")({server:{handlers:{
  GET:async({request})=>{
   const user=await currentUser(request); if(!user)return jsonError("ابتدا وارد شوید.",401);
   const {DB}=bindings(); if(!DB)return jsonError("پایگاه داده آماده نیست.",503);
   let rows;
   if(user.role==="admin") rows=await DB.prepare("SELECT r.*,u.display_name,c.name AS class_name FROM reports r JOIN users u ON u.id=r.user_id JOIN classes c ON c.id=r.class_id WHERE r.user_id=? ORDER BY r.submitted_at DESC LIMIT 100").bind(user.id).all();
-  else if(user.role==="teacher") rows=await DB.prepare("SELECT r.*,u.display_name,c.name AS class_name FROM reports r JOIN users u ON u.id=r.user_id JOIN classes c ON c.id=r.class_id WHERE c.teacher_id=? ORDER BY r.submitted_at DESC LIMIT 100").bind(user.id).all();
+  else if(user.role==="teacher") rows=await DB.prepare(`SELECT r.*,u.display_name,c.name AS class_name FROM reports r JOIN users u ON u.id=r.user_id JOIN classes c ON c.id=r.class_id WHERE ${TEACHES_CLASS_SQL} ORDER BY r.submitted_at DESC LIMIT 100`).bind(user.id,user.id).all();
   else rows=await DB.prepare("SELECT r.*,c.name AS class_name FROM reports r JOIN classes c ON c.id=r.class_id WHERE r.user_id=? ORDER BY r.submitted_at DESC LIMIT 100").bind(user.id).all();
   return Response.json({reports:rows.results});
  },
