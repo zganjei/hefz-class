@@ -172,3 +172,4 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 .auth-screen{place-items:start stretch;align-content:start}.auth-card{margin:0 auto;width:100%;max-width:420px}.apply-form .hp{position:absolute;right:auto;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;padding:0}
 .app-actions .ghost-wide{background:#fff;color:#8a2f22;border:1px solid #d9b2a8}
 .m-app .app-actions .ghost-wide{background:#fff!important;color:#8a2f22!important;border:1px solid #d9b2a8!important}
+.landing-doc{display:block;text-align:center;margin-top:14px;color:#214b38;font-size:13px;text-decoration:underline}
