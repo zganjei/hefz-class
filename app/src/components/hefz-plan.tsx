@@ -23,7 +23,7 @@ function LearnerPlan() {
     try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
   };
   const curN = weeks.find(x => x.current)?.week_number ?? -1;
-  const visible = weeks.filter(w => (w.open || w.week_number === curN + 1) && (showAll || w.week_number >= curN - 3 || curN < 0));
+  const visible = weeks.filter(w => w.open && (showAll || w.week_number >= curN - 3 || curN < 0));
   const hidden = weeks.filter(w => w.open && w.week_number < curN - 3).length;
   if (loading) return <p className="empty-state">در حال بارگذاری…</p>;
   return <section className="plan-wrap">
@@ -36,15 +36,19 @@ function LearnerPlan() {
           <div><b>هفتهٔ {fa(w.week_number)} · {w.title}</b><small>{pageLabel(w)}{w.current ? " · این هفته" : ""}</small></div>
           {w.open ? <div className="plan-prog"><span>{fa(w.doneNew)} از {fa(w.total)}</span><i><u style={{ width: pct + "%" }} /></i></div> : <span className="plan-lock">🔒 به‌زودی باز می‌شود</span>}
         </button>
-        {isOpen && <div className="plan-table-wrap"><table className="plan-table"><thead><tr><th>تیک</th><th>روز</th><th>حفظ جدید</th><th>مرور ده درس</th><th>سبد کل</th></tr></thead><tbody>
-          {w.days.map(d => <tr key={d.index} className={d.done ? "done" : ""}>
-            <td data-label="تیک"><label className="plan-check"><input type="checkbox" checked={d.done} disabled={d.future} onChange={() => void tick(w, d)} /><span /></label></td>
-            <td className="plan-day" data-label="روز"><b>{d.name}</b><small>{d.jdate}</small></td>
-            <td className="plan-new" data-label="حفظ جدید">{d.new || (d.kind === "class" ? <b>کلاس</b> : <em>مرور و استراحت</em>)}</td>
-            <td data-label="مرور ده درس">{d.review.map((x, i) => <div key={i}>{x}</div>)}{!d.review.length && "—"}</td>
-            <td className="plan-basket" data-label="سبد کل">{d.basket.map((x, i) => <div key={i}>{x}</div>)}{!d.basket.length && "—"}</td>
-          </tr>)}
-        </tbody></table><p className="plan-hint">بعد از انجام هر روز، تیک بزنید تا معلم پیشرفت شما را ببیند.</p></div>}
+        {isOpen && <div className="m-days">
+          {w.days.map(d => <div key={d.index} className={"m-day" + (d.done ? " done" : "") + (d.kind !== "new" ? " calm" : "")}>
+            <label className="m-check"><input type="checkbox" checked={d.done} disabled={d.future} onChange={() => void tick(w, d)} /><span /></label>
+            <div className="m-day-body">
+              <div className="m-day-top"><b>{d.name}</b><small>{d.jdate}</small></div>
+              <div className="m-new">{d.new || (d.kind === "class" ? "کلاس" : "مرور و استراحت")}</div>
+              {(d.review.length > 0 || d.basket.length > 0) && <details className="m-more"><summary>مرور امروز</summary>
+                {d.review.length > 0 && <p><i>ده درس اخیر:</i> {d.review.join("، ")}</p>}
+                {d.basket.length > 0 && <p><i>سبد کل:</i> {d.basket.join("، ")}</p>}
+              </details>}
+            </div>
+          </div>)}
+        </div>}
       </article>;
     })}
     {hidden > 0 && <button className="plan-more" onClick={() => setShowAll(v => !v)}>{showAll ? "پنهان کردن هفته‌های قدیمی" : `نمایش ${fa(hidden)} هفته‌ی قبلی`}</button>}
@@ -61,27 +65,26 @@ function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
   }, [classId, week]);
   return <section className="plan-wrap">
     <div className="plan-toolbar">
-      <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      {classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
       {data && <label>هفته<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}
     {data && <article className="plan-week current"><div className="plan-week-head static"><div><b>هفتهٔ {fa(data.week.week_number)} · {data.week.title}</b><small>{pageLabel(data.week)}</small></div></div>
-      <div className="plan-table-wrap"><table className="plan-table report"><thead><tr><th>حافظ</th>{data.week.days.map(d => <th key={d.index}>{d.name}<small>{d.jdate}</small></th>)}<th>انجام‌شده</th></tr></thead><tbody>
-        {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length; return <tr key={m.id}>
-          <td className="plan-name">{m.name}<small>مجموع تیک‌ها: {fa(m.totalDone)}</small></td>
-          {data.week.days.map(d => <td key={d.index} className="plan-dot">{m.done.includes(d.index) ? <b className="on">✓</b> : <b className={d.future ? "off future" : d.kind === "new" ? "off" : "off rest"}>{d.kind === "new" || d.future ? "·" : d.kind === "class" ? "ک" : "–"}</b>}</td>)}
-          <td><b className={doneNew === data.week.newDays.length ? "plan-full" : ""}>{fa(doneNew)} از {fa(data.week.newDays.length)}</b></td></tr>; })}
-        {!data.members.length && <tr><td colSpan={9}><p className="empty-state">هنوز حافظی در این کلاس نیست.</p></td></tr>}
-      </tbody></table><p className="plan-hint">✓ تیک‌خورده · نقطه: هنوز انجام نشده · خط تیره: روز مرور/استراحت</p></div></article>}
+      <div className="m-members">
+        {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length, all = doneNew === data.week.newDays.length; return <div key={m.id} className="m-member">
+          <div className="m-member-top"><b>{m.name}</b><span className={all ? "m-full" : ""}>{fa(doneNew)} از {fa(data.week.newDays.length)}</span></div>
+          <div className="m-dots">{data.week.days.map(d => <div key={d.index} className={"m-dot" + (m.done.includes(d.index) ? " on" : d.future ? " future" : d.kind === "new" ? " miss" : " rest")}><small>{d.name.slice(0, 1)}</small><b>{m.done.includes(d.index) ? "✓" : d.kind === "class" ? "ک" : d.kind === "new" ? "·" : "–"}</b></div>)}</div>
+        </div>; })}
+        {!data.members.length && <p className="empty-state">هنوز حافظی در این کلاس نیست.</p>}
+        <p className="plan-hint">✓ انجام شد · نقطه: هنوز نه · ک: کلاس · خط: استراحت</p></div></article>}
   </section>;
 }
 
 export function HefzPlan({ user, classes }: { user: User; classes: { id: string; name: string }[] }) {
   const teacher = user.role === "teacher" || user.role === "admin";
-  const [view, setView] = useState<"mine" | "class">(user.role === "teacher" ? "class" : "mine");
-  return <section className="panel plan-panel">
-    <div className="panel-heading"><div><h2>برنامه‌ی هفتگی حفظ</h2><p>هر هفته یک صفحه از قرآن؛ آیه‌ها بدون شکستن در حداکثر شش روز، یک روز مرور و استراحت.</p></div>
-      {teacher && <div className="plan-switch"><button className={view === "mine" ? "on" : ""} onClick={() => setView("mine")}>برنامه‌ی من</button><button className={view === "class" ? "on" : ""} onClick={() => setView("class")}>گزارش کلاس</button></div>}</div>
+  const [view, setView] = useState<"mine" | "class">(teacher ? "class" : "mine");
+  return <section className="m-plan">
+    {teacher && <div className="m-seg"><button className={view === "class" ? "on" : ""} onClick={() => setView("class")}>گزارش کلاس</button><button className={view === "mine" ? "on" : ""} onClick={() => setView("mine")}>برنامه‌ی من</button></div>}
     {view === "mine" || !teacher ? <LearnerPlan /> : <TeacherPlan classes={classes} />}
   </section>;
 }
