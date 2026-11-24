@@ -16,8 +16,10 @@ import { Route as ApiAssignmentsRouteImport } from './routes/api/assignments'
 import { Route as ApiBootstrapRouteImport } from './routes/api/bootstrap'
 import { Route as ApiClassTeachersRouteImport } from './routes/api/class-teachers'
 import { Route as ApiClassesRouteImport } from './routes/api/classes'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
 import { Route as ApiLearningRouteImport } from './routes/api/learning'
+import { Route as ApiPlanRouteImport } from './routes/api/plan'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
@@ -60,6 +62,11 @@ const ApiClassesRoute = ApiClassesRouteImport.update({
   path: '/api/classes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInvitationsRoute = ApiInvitationsRouteImport.update({
   id: '/api/invitations',
   path: '/api/invitations',
@@ -68,6 +75,11 @@ const ApiInvitationsRoute = ApiInvitationsRouteImport.update({
 const ApiLearningRoute = ApiLearningRouteImport.update({
   id: '/api/learning',
   path: '/api/learning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlanRoute = ApiPlanRouteImport.update({
+  id: '/api/plan',
+  path: '/api/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReportsRoute = ApiReportsRouteImport.update({
@@ -109,8 +121,10 @@ export interface FileRoutesByFullPath {
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/plan': typeof ApiPlanRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -126,8 +140,10 @@ export interface FileRoutesByTo {
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/plan': typeof ApiPlanRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -144,8 +160,10 @@ export interface FileRoutesById {
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
   '/api/classes': typeof ApiClassesRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/plan': typeof ApiPlanRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -163,8 +181,10 @@ export interface FileRouteTypes {
     | '/api/bootstrap'
     | '/api/class-teachers'
     | '/api/classes'
+    | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/plan'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -180,8 +200,10 @@ export interface FileRouteTypes {
     | '/api/bootstrap'
     | '/api/class-teachers'
     | '/api/classes'
+    | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/plan'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -197,8 +219,10 @@ export interface FileRouteTypes {
     | '/api/bootstrap'
     | '/api/class-teachers'
     | '/api/classes'
+    | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/plan'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -215,8 +239,10 @@ export interface RootRouteChildren {
   ApiBootstrapRoute: typeof ApiBootstrapRoute
   ApiClassTeachersRoute: typeof ApiClassTeachersRoute
   ApiClassesRoute: typeof ApiClassesRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiInvitationsRoute: typeof ApiInvitationsRoute
   ApiLearningRoute: typeof ApiLearningRoute
+  ApiPlanRoute: typeof ApiPlanRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
@@ -275,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClassesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/invitations': {
       id: '/api/invitations'
       path: '/api/invitations'
@@ -287,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/api/learning'
       fullPath: '/api/learning'
       preLoaderRoute: typeof ApiLearningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/plan': {
+      id: '/api/plan'
+      path: '/api/plan'
+      fullPath: '/api/plan'
+      preLoaderRoute: typeof ApiPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reports': {
@@ -354,8 +394,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBootstrapRoute: ApiBootstrapRoute,
   ApiClassTeachersRoute: ApiClassTeachersRoute,
   ApiClassesRoute: ApiClassesRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiInvitationsRoute: ApiInvitationsRoute,
   ApiLearningRoute: ApiLearningRoute,
+  ApiPlanRoute: ApiPlanRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
