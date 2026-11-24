@@ -1,5 +1,6 @@
 import { bindings } from "./bindings.server";
 import { canManageClass } from "./access.server";
+import { applicationForEmail } from "./applications.server";
 
 const encoder = new TextEncoder();
 const DAY = 60 * 60 * 24;
@@ -63,32 +64,11 @@ export async function login(request: Request, email: string, password: string) {
   const headers = new Headers({ "Set-Cookie": sessionCookie(token) });
   return Response.json({ user: { id: user.id, email: user.email, display_name: user.display_name, role: user.role } }, { headers });
 }
-export async function registerWithInvite(request: Request, body: Record<string, unknown>) {
-  const { DB } = bindings();
-  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
-  const name = typeof body.name === "string" ? body.name.trim().slice(0,80) : "";
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const password = typeof body.password === "string" ? body.password : "";
-  const invitation = typeof body.invitation === "string" ? body.invitation : "";
-  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 10 || password.length > 128 || !invitation) return jsonError("اطلاعات را بررسی کنید. گذرواژه باید دست‌کم ۱۰ نویسه باشد.");
-  const tokenHash = await crypto.subtle.digest("SHA-256", encoder.encode(invitation));
-  const token = b64(new Uint8Array(tokenHash));
-  const invite = await DB.prepare("SELECT id,email,role,class_id,created_by FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null;created_by:string}>();
-  if (!invite || invite.email.toLowerCase() !== email) return jsonError("دعوت‌نامه معتبر نیست یا منقضی شده است.", 403);
-  const id = crypto.randomUUID();
-  const passwordHash = await hashPassword(password);
-  try {
-    await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,?)").bind(id,email,name,passwordHash,invite.role).run();
-    await attachInviteToClass(DB, invite, id);
-    await DB.prepare("UPDATE invitations SET used_at=? WHERE id=?").bind(new Date().toISOString(),invite.id).run();
-  } catch {
-    return jsonError("این ایمیل قبلاً ثبت شده یا دعوت‌نامه قابل استفاده نیست.",409);
-  }
-  const tokenId=crypto.randomUUID();
-  await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(tokenId,id,new Date(Date.now()+DAY*14*1000).toISOString()).run();
-  return Response.json({user:{id,email,display_name:name,role:invite.role}},{headers:{"Set-Cookie":sessionCookie(tokenId)}});
+// Password sign-up is disabled: it never proved that the person owns the invited email.
+// New accounts are created only through Google sign-in (verified email), see registerOrLoginWithGoogle.
+export async function registerWithInvite(_request: Request, _body: Record<string, unknown>) {
+  return jsonError("ثبت‌نام فقط با «ورود با گوگل» و با همان ایمیلِ دعوت‌نامه ممکن است.", 403);
 }
-
 export async function registerOrLoginWithGoogle(request: Request, body: Record<string, unknown>) {
   const { DB, GOOGLE_CLIENT_ID } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
@@ -108,14 +88,13 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
   let user: SessionUser;
   if (existing) {
     if (existing.password_hash !== `google:${google.sub}`) return jsonError("این ایمیل قبلاً با گذرواژه ثبت شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
-    user = existing;
+    user = { id: existing.id, email: existing.email, display_name: existing.display_name, role: existing.role };
   } else {
     // The first verified Google account becomes the app administrator.
     // Every later account must use an invitation.
-    const isFirstAdmin = true;
+    const count = await DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
+    const isFirstAdmin = Number(count?.n ?? 0) === 0;
     if (isFirstAdmin) {
-      const count = await DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
-      if (Number(count?.n ?? 0) !== 0) return jsonError("حساب مدیر اولیه قبلاً ایجاد شده است. برای ساخت حساب جدید باید دعوت‌نامه داشته باشید.", 403);
       const id = crypto.randomUUID();
       const name = (google.name || email.split("@")[0]).trim().slice(0,80);
       try {
@@ -126,7 +105,24 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
       if (!created || created.role !== "admin") return jsonError("راه‌اندازی مدیر انجام نشد؛ ممکن است حساب دیگری زودتر ساخته شده باشد.",409);
       user = created;
     } else {
-      if (!invitation) return jsonError("برای ساخت حساب، ابتدا باید از مدیر دعوت‌نامه بگیرید.", 403);
+      if (!invitation) {
+        // No invite code: the person must have an application the admin approved.
+        const app = await applicationForEmail(email);
+        if (!app) return jsonError("برای این ایمیل درخواستی ثبت نشده است. ابتدا در بخش «ثبت‌نام» درخواست بدهید.", 403);
+        if (app.status === "pending") return jsonError("درخواست شما هنوز تأیید نشده است؛ پس از تأیید مدیر می‌توانید وارد شوید.", 403);
+        if (app.status === "rejected") return jsonError("درخواست شما تأیید نشد. برای پیگیری با مدیر تماس بگیرید.", 403);
+        if (app.used_at) return jsonError("این درخواست قبلاً استفاده شده است؛ با مدیر تماس بگیرید.", 409);
+        const id = crypto.randomUUID();
+        const name = `${app.first_name} ${app.last_name}`.trim().slice(0, 80);
+        try {
+          await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,'memorizer')").bind(id, email, name, `google:${google.sub}`).run();
+          await DB.prepare("UPDATE applications SET used_at=? WHERE id=?").bind(new Date().toISOString(), app.id).run();
+        } catch { return jsonError("ساخت حساب انجام نشد؛ دوباره امتحان کنید.", 409); }
+        user = { id, email, display_name: name, role: "memorizer" };
+        const session2 = crypto.randomUUID();
+        await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(session2, user.id, new Date(Date.now() + DAY * 14 * 1000).toISOString()).run();
+        return Response.json({ user }, { headers: { "Set-Cookie": sessionCookie(session2) } });
+      }
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(invitation)));
     const token = b64(digest);
     const invite = await DB.prepare("SELECT id,email,role,class_id,created_by FROM invitations WHERE token_hash=? AND used_at IS NULL AND expires_at>?").bind(token, new Date().toISOString()).first<{id:string;email:string;role:Role;class_id:string|null;created_by:string}>();
