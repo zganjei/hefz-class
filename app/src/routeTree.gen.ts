@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ApiApplicationsRouteImport } from './routes/api/applications'
 import { Route as ApiAssignmentsRouteImport } from './routes/api/assignments'
 import { Route as ApiBootstrapRouteImport } from './routes/api/bootstrap'
 import { Route as ApiClassTeachersRouteImport } from './routes/api/class-teachers'
@@ -40,6 +41,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiApplicationsRoute = ApiApplicationsRouteImport.update({
+  id: '/api/applications',
+  path: '/api/applications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAssignmentsRoute = ApiAssignmentsRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/applications': typeof ApiApplicationsRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/applications': typeof ApiApplicationsRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/applications': typeof ApiApplicationsRoute
   '/api/assignments': typeof ApiAssignmentsRoute
   '/api/bootstrap': typeof ApiBootstrapRoute
   '/api/class-teachers': typeof ApiClassTeachersRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/applications'
     | '/api/assignments'
     | '/api/bootstrap'
     | '/api/class-teachers'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/applications'
     | '/api/assignments'
     | '/api/bootstrap'
     | '/api/class-teachers'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/applications'
     | '/api/assignments'
     | '/api/bootstrap'
     | '/api/class-teachers'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiApplicationsRoute: typeof ApiApplicationsRoute
   ApiAssignmentsRoute: typeof ApiAssignmentsRoute
   ApiBootstrapRoute: typeof ApiBootstrapRoute
   ApiClassTeachersRoute: typeof ApiClassTeachersRoute
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/applications': {
+      id: '/api/applications'
+      path: '/api/applications'
+      fullPath: '/api/applications'
+      preLoaderRoute: typeof ApiApplicationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/assignments': {
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiApplicationsRoute: ApiApplicationsRoute,
   ApiAssignmentsRoute: ApiAssignmentsRoute,
   ApiBootstrapRoute: ApiBootstrapRoute,
   ApiClassTeachersRoute: ApiClassTeachersRoute,
