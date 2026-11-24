@@ -25,10 +25,10 @@ export function jalaliLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number); const j = g2j(y, m, d);
   return `${digits(j.jd)} ${MONTHS[j.jm - 1]}`;
 }
-export type PlanDay = { new: string | null; review: string[]; basket: string[] };
+export type PlanDay = { kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[] };
 export function expandWeek(w: { start_date: string | null; days: PlanDay[] }, today: string, done: Set<number>) {
   return w.days.map((d, i) => {
     const date = w.start_date ? addDays(w.start_date, i) : null;
-    return { index: i, name: DAY_NAMES[i], date, jdate: date ? jalaliLabel(date) : "", new: d.new, review: d.review, basket: d.basket, done: done.has(i), future: !!date && date > today };
+    return { index: i, name: DAY_NAMES[i], date, jdate: date ? jalaliLabel(date) : "", kind: d.kind, new: d.new, review: d.review, basket: d.basket, done: done.has(i), future: !!date && date > today };
   });
 }

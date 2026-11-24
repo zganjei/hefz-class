@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; display_name: string };
-type Day = { index: number; name: string; jdate: string; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
+type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
 type Week = { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 async function call(path: string, body?: unknown, method = "GET") {
@@ -40,7 +40,7 @@ function LearnerPlan() {
           {w.days.map(d => <tr key={d.index} className={d.done ? "done" : ""}>
             <td data-label="تیک"><label className="plan-check"><input type="checkbox" checked={d.done} disabled={d.future} onChange={() => void tick(w, d)} /><span /></label></td>
             <td className="plan-day" data-label="روز"><b>{d.name}</b><small>{d.jdate}</small></td>
-            <td className="plan-new" data-label="حفظ جدید">{d.new || <em>مرور و استراحت</em>}</td>
+            <td className="plan-new" data-label="حفظ جدید">{d.new || (d.kind === "class" ? <b>کلاس</b> : <em>مرور و استراحت</em>)}</td>
             <td data-label="مرور ده درس">{d.review.map((x, i) => <div key={i}>{x}</div>)}{!d.review.length && "—"}</td>
             <td className="plan-basket" data-label="سبد کل">{d.basket.map((x, i) => <div key={i}>{x}</div>)}{!d.basket.length && "—"}</td>
           </tr>)}
@@ -51,7 +51,7 @@ function LearnerPlan() {
   </section>;
 }
 
-type Report = { currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
+type Report = { currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
 function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
   const [classId, setClassId] = useState(classes[0]?.id || ""), [week, setWeek] = useState<number | null>(null), [data, setData] = useState<Report | null>(null), [msg, setMsg] = useState("");
   useEffect(() => { if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId]);
@@ -69,7 +69,7 @@ function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
       <div className="plan-table-wrap"><table className="plan-table report"><thead><tr><th>حافظ</th>{data.week.days.map(d => <th key={d.index}>{d.name}<small>{d.jdate}</small></th>)}<th>انجام‌شده</th></tr></thead><tbody>
         {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length; return <tr key={m.id}>
           <td className="plan-name">{m.name}<small>مجموع تیک‌ها: {fa(m.totalDone)}</small></td>
-          {data.week.days.map(d => <td key={d.index} className="plan-dot">{m.done.includes(d.index) ? <b className="on">✓</b> : <b className={d.future ? "off future" : d.new ? "off" : "off rest"}>{d.new || d.future ? "·" : "–"}</b>}</td>)}
+          {data.week.days.map(d => <td key={d.index} className="plan-dot">{m.done.includes(d.index) ? <b className="on">✓</b> : <b className={d.future ? "off future" : d.kind === "new" ? "off" : "off rest"}>{d.kind === "new" || d.future ? "·" : d.kind === "class" ? "ک" : "–"}</b>}</td>)}
           <td><b className={doneNew === data.week.newDays.length ? "plan-full" : ""}>{fa(doneNew)} از {fa(data.week.newDays.length)}</b></td></tr>; })}
         {!data.members.length && <tr><td colSpan={9}><p className="empty-state">هنوز حافظی در این کلاس نیست.</p></td></tr>}
       </tbody></table><p className="plan-hint">✓ تیک‌خورده · نقطه: هنوز انجام نشده · خط تیره: روز مرور/استراحت</p></div></article>}

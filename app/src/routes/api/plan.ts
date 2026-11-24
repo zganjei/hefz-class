@@ -7,7 +7,7 @@ import { expandWeek, stockholmToday, type PlanDay } from "../../lib/plan.server"
 type WeekRow = { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; start_date: string | null; days: PlanDay[] };
 const WEEK_SQL = "SELECT week_number,title,mushaf_page,mushaf_page2,start_date::text AS start_date,days FROM hefz_plan_weeks";
 const isOpen = (w: { start_date: string | null }, today: string) => !w.start_date || w.start_date <= today;
-const newDays = (w: { days: PlanDay[] }) => w.days.map((d, i) => (d.new ? i : -1)).filter(i => i >= 0);
+const newDays = (w: { days: PlanDay[] }) => w.days.map((d, i) => (d.kind === "new" ? i : -1)).filter(i => i >= 0);
 
 export const Route = createFileRoute("/api/plan")({ server: { handlers: {
  GET: async ({ request }) => {
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    const totals = (await DB.prepare("SELECT p.user_id,COUNT(*) AS n FROM hefz_plan_progress p JOIN class_members m ON m.user_id=p.user_id AND m.class_id=? GROUP BY p.user_id").bind(classId).all<{ user_id: string; n: number }>()).results || [];
    const days = expandWeek(week, today, new Set());
    return Response.json({
-    currentWeek, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, new: d.new, future: d.future })) },
+    currentWeek, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
     weeks: all.filter(w => isOpen(w, today)).map(w => ({ week_number: w.week_number, title: w.title })),
     members: members.map(m => ({ id: m.id, name: m.display_name, done: prog.filter(p => p.user_id === m.id).map(p => p.day_index), lastTick: prog.filter(p => p.user_id === m.id).map(p => p.done_at).sort().pop() || null, totalDone: Number(totals.find(t => t.user_id === m.id)?.n || 0) })),
    });
