@@ -243,3 +243,12 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 .lp-top-logo img{height:42px;width:auto;border-radius:50%;background:#fff;padding:3px;box-shadow:0 0 0 1.5px #b68a4266}
 button.auth-mark{border:0;padding:0;cursor:pointer}
 .lp-item.home.on{background:#b68a42;color:#10392f}
+
+/* course wizard + bottom bar with up to 5 items */
+.m-steps{display:flex;gap:6px;overflow-x:auto;margin:0 0 14px;padding-bottom:2px}
+.m-steps button{flex:1 0 auto;display:flex;align-items:center;gap:6px;justify-content:center;border:1.5px solid #dce7da;background:#fffdf7;color:#174b3b;border-radius:999px;padding:7px 12px;font-size:12.5px;font-weight:700}
+.m-steps button i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#dce7da;display:grid;place-items:center;font-size:11px}
+.m-steps button.on{background:#174b3b;color:#fff;border-color:#174b3b}.m-steps button.on i{background:#b68a42;color:#10392f}
+.m-stepnav{margin-top:12px}
+.m-bar button span{font-size:10.5px}
+.m-seg.steps button{flex:1 1 0;padding:0 2px;font-size:12.5px;min-height:40px}
