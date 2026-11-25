@@ -54,7 +54,13 @@ export const Route = createFileRoute("/api/registry")({ server: { handlers: {
         const extra = r?.extra && typeof r.extra === "object" ? JSON.stringify(r.extra).slice(0, 8000) : null;
         let existing: any = null;
         if (v.code) existing = await DB.prepare("SELECT id FROM registry_people WHERE kind=? AND code=?").bind(kind, v.code).first();
-        else existing = await DB.prepare("SELECT id FROM registry_people WHERE kind=? AND full_name=? AND COALESCE(class_name,'')=?").bind(kind, v.full_name, v.class_name).first();
+        else {
+          const same = await DB.prepare("SELECT id,class_name FROM registry_people WHERE kind=? AND full_name=?").bind(kind, v.full_name).all();
+          const list: any[] = (same as any).results ?? same ?? [];
+          const base = (c: string) => c.replace(/^(کلاس|گروه)\s+/, "").trim();
+          // same name in the same class, or in a class whose name is a shorter form of this one (e.g. "کلاس شهید" -> "گروه شهید معماریان")
+          existing = list.find(x => (x.class_name || "") === v.class_name) || list.find(x => !x.class_name || (base(x.class_name) && base(v.class_name).includes(base(x.class_name)))) || null;
+        }
         if (existing) {
           await DB.prepare(`UPDATE registry_people SET ${FIELDS.map(f => f + "=?").join(",")},extra=COALESCE(?,extra),updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(...FIELDS.map(f => v[f]), extra, existing.id).run(); updated++;
         } else {
