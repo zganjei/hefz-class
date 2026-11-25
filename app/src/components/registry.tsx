@@ -104,7 +104,10 @@ const countBy = (rows: Person[], f: (p: Person) => string) => { const m: Record<
 
 export function Registry() {
   const [all, setAll] = useState<Person[]>([]);
-  const [tab, setTab] = useState<"student" | "teacher" | "supporter" | "stats" | "import">("student");
+  type RTab = "student" | "teacher" | "supporter" | "stats" | "import";
+  const [tab, setTabRaw] = useState<RTab>("student");
+  const setTab = (t: RTab) => { setTabRaw(t); try { localStorage.setItem("reg-tab", t); } catch { /* ignore */ } };
+  useEffect(() => { try { const t = localStorage.getItem("reg-tab"); if (t && ["student", "teacher", "supporter", "stats", "import"].includes(t)) setTabRaw(t as RTab); } catch { /* ignore */ } }, []);
   const [q, setQ] = useState(""); const [cls, setCls] = useState("");
   const [edit, setEdit] = useState<Person | null>(null);
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
