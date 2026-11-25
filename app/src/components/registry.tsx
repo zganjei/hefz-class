@@ -64,6 +64,34 @@ function parseWorkbook(wb: XLSX.WorkBook, fileName = ""): { rows: Person[]; shee
     }
     if (n) sheets.push(`${name.trim()} (${n})`);
   }
+  // Per-student sheets ("مشخصات قرآن آموز"): label cell followed by its value to the right.
+  const LAB: Record<string, string> = { "نام و نام خانوادگی": "full_name", "شماره تماس": "phone", "تحصیلات": "education", "میزان حفظ": "hifz_amount", "میزان تدبر": "tadabbur_amount", "محدوده ثبت نام": "level", "کد قرآن آموز": "code", "ایمیل": "email", "جیمیل": "email", "شماره بله و آیدی": "bale", "آیدی بله": "bale_id", "شماره بله": "bale_number", "تاریخ تولد": "x", "دانشگاه": "x", "محل سکونت": "x", "سال ورود": "x", "شغل": "x", "وضعیت تاهل": "x" };
+  const base = out.find(r => r.teacher_name || r.class_day || r.class_time) || out[0];
+  const clsAll = base?.class_name || ((/[\u0600-\u06FF]/.test(fileName) ? norm(fileName.replace(/\.[a-z0-9]+$/i, "")) : "") || "");
+  const sq = (x: string) => norm(x).replace(/[^\u0600-\u06FF]/g, "");
+  for (const name of wb.SheetNames) {
+    const grid: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: false });
+    if (!/^مشخصات قرآن آموز(?!ان)/.test(norm(grid[0]?.[0]))) continue;
+    const p: any = {}; const extra: Record<string, string> = {};
+    for (let i = 1; i < Math.min(grid.length, 12); i++) {
+      const row = grid[i];
+      for (let j = 0; j < row.length; j++) {
+        const lab = norm(row[j]); const k = LAB[lab]; if (!k) continue;
+        let v = ""; for (let m = j + 1; m < row.length; m++) { const x = norm(row[m]); if (LAB[x]) break; if (x) { v = x; break; } }
+        if (!v) continue;
+        if (k === "x") extra[lab] = v;
+        else if (k === "bale") { if (/[a-zA-Z@_]/.test(v)) p.bale_id = v; else p.bale_number = v; }
+        else p[k] = v;
+      }
+    }
+    if (!p.full_name) continue;
+    for (const k of ["phone", "bale_number"]) if (/^9\d{9}$/.test(p[k] || "")) p[k] = "0" + p[k];
+    const tail = (x?: string) => (x || "").replace(/\D/g, "").slice(-8);
+    const hit = out.find(r => sq(r.full_name) === sq(p.full_name)) || out.find(r => tail(p.phone).length === 8 && tail(r.phone) === tail(p.phone));
+    if (hit) { for (const [k, v] of Object.entries(p)) if (!(hit as any)[k]) (hit as any)[k] = v; (hit as any).extra = { ...((hit as any).extra || {}), ...extra }; }
+    else out.push({ class_name: clsAll, ...(base ? { teacher_name: base.teacher_name, class_day: base.class_day, class_time: base.class_time } : {}), ...p, ...(Object.keys(extra).length ? { extra } : {}) });
+    sheets.push(`پرونده‌ی ${p.full_name}`);
+  }
   return { rows: out, sheets };
 }
 
