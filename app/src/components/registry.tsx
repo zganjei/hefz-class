@@ -56,6 +56,7 @@ function parseWorkbook(wb: XLSX.WorkBook): { rows: Person[]; sheets: string[] } 
     for (let i = hi + 1; i < grid.length; i++) {
       const row = grid[i]; const p: any = { class_name: cls, ...meta }; const extra: Record<string, string> = {};
       cols.forEach((k, j) => { const v = norm(row[j]); if (!v) return; if (k) p[k] = v; else if (raw[j] && raw[j] !== "ردیف") extra[raw[j]] = v; });
+      for (const k of ["phone", "bale_number"]) if (/^9\d{9}$/.test(p[k] || "")) p[k] = "0" + p[k];
       if (!p.full_name || /^[0-9]+$/.test(p.full_name)) continue;
       if (Object.keys(extra).length) p.extra = extra;
       out.push(p); n++;
