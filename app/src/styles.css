@@ -225,3 +225,11 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 @keyframes lpIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.lp-card,.lp-sec{animation:none}}
 @media(max-width:560px){.lp-menu{width:104px;padding:14px 8px}.lp-item{font-size:11.5px;min-height:56px}.lp-card{padding:30px 16px 24px}.lp-main{padding:18px 10px}}
+
+/* nav tidy */
+.lp-cta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+.lp-why{margin:6px 0 4px}.lp-sec h3{margin-top:20px}
+.lp-item.home{min-height:44px;font-size:12.5px;background:#ffffff08}
+.auth-back{background:none;border:0;color:#174b3b;font-size:13px;padding:0 0 8px;display:block}
+.m-seg{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}.m-seg button{flex:none}
+.lp-back{display:block}

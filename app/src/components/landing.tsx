@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-type Sub = "" | "map" | "online" | "offline" | "rules";
+type Sub = "" | "why1" | "why2" | "map" | "online" | "offline" | "rules";
 
 const MENU: { key: string; label: string }[] = [
   { key: "hefz", label: "حفظ تدبری" },
@@ -38,6 +38,10 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
             <p className="lp-intro">
               دوره‌ی «رزمی چنین» بر آن است که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان ارتقا بخشد.
             </p>
+            <div className="lp-cta">
+              <button type="button" className="landing-btn primary" onClick={onRegister}>ثبت‌نام</button>
+              <button type="button" className="landing-btn" onClick={onLogin}>ورود</button>
+            </div>
           </section>
         )}
 
@@ -49,20 +53,27 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
             <p>
               با توجه به فراگیری کلاس‌های حفظ و تمرکز آن‌ها بر الفاظ قرآن و گاه دور ماندن از ترجمه و نگاه تدبری به آیات، در این دوره برآنیم که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان قوی کنیم.
             </p>
-            <details>
-              <summary>چرا حفظ؟</summary>
+            <div className="lp-subs lp-why">
+              <button type="button" className={"landing-btn" + (sub === "why1" ? " on" : "")} onClick={() => toggle("why1")}>چرا حفظ؟</button>
+              {sub === "why1" && (
+                <div className="landing-info">
               <p>حفظ قرآن و تکرار آن برای فردی که می‌خواهد آیات را حفظ کند، نوع خاصی از انس می‌آورد که با قرائت ساده حاصل نمی‌شود.</p>
               <p className="lp-quote">
                 <b>امام شهید:</b> «اول باید خوب بخوانید؛ تلاوت را زیبا و جامع و صحیح بخوانید؛ دوم معانی و مفاهیم قرآنی را بفهمید و سوم قرآن را حفظ کنید. حفظ قرآن خیلی مهم است … تدبر در قرآن با همین‌طور خواندن و رد شدن به دست نمی‌آید؛ با تکرار و انس با آیه‌ای از قرآن و امکان تدبر در آن به دست می‌آید.»
               </p>
-            </details>
-            <details>
-              <summary>چرا تدبر؟</summary>
+            </div>
+              )}
+              <button type="button" className={"landing-btn" + (sub === "why2" ? " on" : "")} onClick={() => toggle("why2")}>چرا تدبر؟</button>
+              {sub === "why2" && (
+                <div className="landing-info">
               <p>
                 بنا داریم با تدبر در معانی و الفاظ، آن‌ها را چون بذر ایمان در جان و دلمان بنشانیم؛ آیات را به باور قلبی تبدیل کنیم تا در برابر فتنه‌های آخرالزمان به سپری معنوی مجهز شویم. در این دوره قصد نداریم تنها حافظ الفاظ باشیم؛ می‌خواهیم با قرآن انس پیدا کنیم، با قرآن زندگی کنیم و مفاهیم پرمغز آن، از جمله جهاد، مقاومت و پیروزی را در دل و جانمان بنشانیم.
               </p>
-            </details>
+            </div>
+              )}
+            </div>
 
+            <h3>بیشتر بدانید</h3>
             <div className="lp-subs">
               <button type="button" className={"landing-btn" + (sub === "map" ? " on" : "")} onClick={() => toggle("map")}>نقشه راه</button>
               {sub === "map" && (
@@ -80,21 +91,18 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
               <button type="button" className={"landing-btn" + (sub === "online" ? " on" : "")} onClick={() => toggle("online")}>دوره آنلاین</button>
               {sub === "online" && (
                 <div className="landing-info">
-                  <b>دوره آنلاین</b>
                   <p>هفته‌ای یک جلسه‌ی یک تا یک‌ونیم ساعته در کلاس آنلاین شرکت می‌کنید و روزانه دست‌کم نیم ساعت برای حفظ قرآن وقت می‌گذارید. مطابق برنامه‌ی مجموعه، هفته‌ای یک صفحه قرآن را همراه با ترجمه و تدبر حفظ کرده و تحویل می‌دهید.</p>
                 </div>
               )}
               <button type="button" className={"landing-btn" + (sub === "offline" ? " on" : "")} onClick={() => toggle("offline")}>دوره آفلاین</button>
               {sub === "offline" && (
                 <div className="landing-info">
-                  <b>دوره آفلاین</b>
                   <p>طبق برنامه‌ی مجموعه، روزی یک آیه (پنج روز در هفته) حفظ می‌کنید و هفته‌ای بیست دقیقه تا نیم ساعت با پشتیبان خود برای تحویل حفظ و تدبر ارتباط دارید. صوت‌های آموزشی را هفتگی گوش می‌دهید؛ بنابراین روزانه دست‌کم نیم ساعت زمان لازم است.</p>
                 </div>
               )}
               <button type="button" className={"landing-btn" + (sub === "rules" ? " on" : "")} onClick={() => toggle("rules")}>قوانین</button>
               {sub === "rules" && (
                 <div className="landing-info">
-                  <b>قوانین</b>
                   <p>عضویت در کانال «رزمی چنین» در پیام‌رسان بله الزامی است. برای مواردی مانند بارداری، زایمان و آزمون‌های تحصیلی، تدابیری برای مرخصی در نظر گرفته شده است.</p>
                 </div>
               )}
@@ -111,10 +119,10 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
           </section>
         )}
 
-        <button type="button" className="lp-login" onClick={onLogin}>ورود</button>
       </div>
 
       <nav className="lp-menu" aria-label="دوره‌ها">
+        <button type="button" className={"lp-item home" + (page === "" ? " on" : "")} onClick={() => { setPage(""); setSub(""); }}>صفحه‌ی اول</button>
         {MENU.map((m) =>
           m.label ? (
             <button key={m.key} type="button" className={"lp-item" + (page === m.key ? " on" : "")} onClick={() => { setPage(m.key); setSub(""); }}>{m.label}</button>
