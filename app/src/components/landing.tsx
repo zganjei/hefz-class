@@ -49,13 +49,10 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
         <>
           <section className="lp2-hero">
             <div className="lp2-hero-in">
-              <h1 className="lp2-poem">رقصی چنین میانه‌ی میدانم آرزوست</h1>
+              <h1 className="lp2-poem">رزمی چنین میانه‌ی میدانم آرزوست</h1>
               <div className="lp2-orn" aria-hidden="true"><span /><i /><span /></div>
               <p className="lp2-lead">
                 طرح قرآنی «رزمی چنین» دوره‌ای است با محوریت قرآن کریم که می‌کوشد با تمسک به کلام الهی، قدمی در راه نورانی کردن جامعه بردارد. این دوره دعوتی است به شرکت در رزمی که سلاح آن، انس با قرآن است.
-              </p>
-              <p className="lp2-sub">
-                دوره‌ی «رزمی چنین» بر آن است که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان ارتقا بخشد.
               </p>
               <div className="lp2-cta">
                 <button type="button" className="lp2-btn gold lg" onClick={onRegister}>ثبت‌نام در دوره</button>

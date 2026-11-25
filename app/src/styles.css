@@ -306,3 +306,4 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .reg-table td:first-child{min-width:130px;color:#294b38}
 .reg-table td[dir=ltr]{text-align:right;unicode-bidi:plaintext;white-space:nowrap}
 .reg-table tbody tr{cursor:pointer}.reg-table tbody tr:nth-child(even){background:#faf8f1}.reg-table tbody tr:active{background:#eef3ec}
+.lp2-lead{margin-bottom:30px}
