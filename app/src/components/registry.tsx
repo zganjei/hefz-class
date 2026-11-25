@@ -39,7 +39,7 @@ function mapHeader(h: string): string | null {
 }
 
 /** Reads every sheet that has a header row with a name column; sheet-level class/teacher/day/time are taken from the rows above the header. */
-function parseWorkbook(wb: XLSX.WorkBook): { rows: Person[]; sheets: string[] } {
+function parseWorkbook(wb: XLSX.WorkBook, fileName = ""): { rows: Person[]; sheets: string[] } {
   const out: Person[] = []; const sheets: string[] = [];
   for (const name of wb.SheetNames) {
     const grid: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: false });
@@ -49,9 +49,10 @@ function parseWorkbook(wb: XLSX.WorkBook): { rows: Person[]; sheets: string[] } 
     const cols = grid[hi].map(c => mapHeader(String(c)));
     const raw = grid[hi].map(c => norm(c));
     const meta: Record<string, string> = {};
-    for (let i = 0; i < hi; i++) { const row = grid[i]; for (let j = 0; j < row.length; j++) { const lab = norm(row[j]); const key = lab === "استاد" ? "teacher_name" : lab === "روز" ? "class_day" : lab === "ساعت" ? "class_time" : ""; if (key) { let nxt = ""; for (let k = j + 1; k < row.length; k++) { const x = norm(row[k]); if (["استاد", "روز", "ساعت"].includes(x)) break; if (x) { nxt = x; break; } } if (nxt) meta[key] = nxt; } } }
+    for (let i = 0; i < hi; i++) { const row = grid[i]; for (let j = 0; j < row.length; j++) { const lab = norm(row[j]); const key = lab === "استاد" ? "teacher_name" : lab === "روز" ? "class_day" : lab === "ساعت" ? "class_time" : ""; if (key) { let nxt = ""; for (let k = j + 1; k < row.length; k++) { const x = norm(row[k]); if (["استاد", "روز", "ساعت"].includes(x)) break; if (x) { nxt = x; break; } } if (!nxt && i + 1 < hi) { const below = norm(grid[i + 1]?.[j]); if (below && !["استاد", "روز", "ساعت"].includes(below)) nxt = below; } if (nxt) meta[key] = nxt; } } }
     const title = norm(grid[0]?.find(c => norm(c)) ?? "");
-    const cls = /کلاس/.test(title) ? title.replace(/^.*?(کلاس)/, "کلاس") : (meta.class_name || name.trim());
+    const fromFile = norm(fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_\-]+/g, " "));
+    const cls = /[\u0600-\u06FF]/.test(fromFile) ? fromFile : /کلاس/.test(title) ? title.replace(/^.*?(کلاس)/, "کلاس") : (meta.class_name || name.trim());
     let n = 0;
     for (let i = hi + 1; i < grid.length; i++) {
       const row = grid[i]; const p: any = { class_name: cls, ...meta }; const extra: Record<string, string> = {};
@@ -91,7 +92,7 @@ export function Registry() {
 
   const onFile = async (f: File | undefined) => {
     if (!f) return; setMsg("");
-    try { const wb = XLSX.read(await f.arrayBuffer(), { type: "array" }); const r = parseWorkbook(wb); setImp({ ...r, file: f.name }); if (!r.rows.length) setMsg("در این فایل ردیف قابل‌شناسایی پیدا نشد. ستون «نام و نام خانوادگی» لازم است."); }
+    try { const wb = XLSX.read(await f.arrayBuffer(), { type: "array" }); const r = parseWorkbook(wb, f.name); setImp({ ...r, file: f.name }); if (!r.rows.length) setMsg("در این فایل ردیف قابل‌شناسایی پیدا نشد. ستون «نام و نام خانوادگی» لازم است."); }
     catch { setMsg("خواندن فایل ممکن نشد."); }
   };
 
