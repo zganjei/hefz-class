@@ -18,19 +18,18 @@ async function sha256Hex(value: string) {
   return Array.from(d, b => b.toString(16).padStart(2, "0")).join("");
 }
 
-export type ApplicationInput = { firstName: string; lastName: string; nationalId: string; age: number; education: string; email: string };
+export type ApplicationInput = { firstName: string; lastName: string; phone: string; baleNumber: string; baleId: string; education: string; email: string };
 // Returns the cleaned input or a Farsi error message. The national ID is never put in the error text.
 export function validateApplication(body: Record<string, unknown>): { ok: true; value: ApplicationInput } | { ok: false; error: string } {
   const firstName = text(body.firstName, 60), lastName = text(body.lastName, 60), education = text(body.education, 120);
-  const nationalId = normalizeDigits(text(body.nationalId, 20));
-  const age = Number(normalizeDigits(text(body.age, 5)));
+  const phone = normalizeDigits(text(body.phone, 20)), baleNumber = normalizeDigits(text(body.baleNumber, 20)), baleId = text(body.baleId, 60);
   const email = text(body.email, 200).toLowerCase();
   if (!firstName || !lastName) return { ok: false, error: "نام و نام خانوادگی را بنویسید." };
-  if (!/^\d{10}$/.test(nationalId)) return { ok: false, error: "کد ملی باید ۱۰ رقم باشد." };
-  if (!Number.isInteger(age) || age < 5 || age > 100) return { ok: false, error: "سن را به‌صورت عدد (۵ تا ۱۰۰) بنویسید." };
+  if (!/^[\d+\- ]{7,20}$/.test(phone)) return { ok: false, error: "شماره تماس را درست بنویسید." };
+  if (!/^[\d+\- ]{7,20}$/.test(baleNumber)) return { ok: false, error: "شماره بله را درست بنویسید." };
   if (!education) return { ok: false, error: "تحصیلات را بنویسید." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: "ایمیل (جیمیل) معتبر بنویسید." };
-  return { ok: true, value: { firstName, lastName, nationalId, age, education, email } };
+  return { ok: true, value: { firstName, lastName, phone, baleNumber, baleId, education, email } };
 }
 
 export async function submitApplication(request: Request, body: Record<string, unknown>) {
@@ -52,8 +51,8 @@ export async function submitApplication(request: Request, body: Record<string, u
   const existingApp = await DB.prepare("SELECT id FROM applications WHERE lower(email)=?").bind(a.email).first();
   if (existingUser || existingApp) return jsonError("با این ایمیل قبلاً درخواست ثبت شده یا حساب وجود دارد. اگر حساب دارید وارد شوید.", 409);
   try {
-    await DB.prepare("INSERT INTO applications (id,first_name,last_name,national_id,age,education,email,ip_hash) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(crypto.randomUUID(), a.firstName, a.lastName, a.nationalId, a.age, a.education, a.email, ipHash).run();
+    await DB.prepare("INSERT INTO applications (id,first_name,last_name,phone,bale_number,bale_id,education,email,ip_hash) VALUES (?,?,?,?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(), a.firstName, a.lastName, a.phone, a.baleNumber, a.baleId, a.education, a.email, ipHash).run();
   } catch {
     return jsonError("با این ایمیل قبلاً درخواست ثبت شده یا حساب وجود دارد. اگر حساب دارید وارد شوید.", 409);
   }
@@ -65,7 +64,7 @@ export async function listApplications(request: Request) {
   if (!user || user.role !== "admin") return jsonError("فقط مدیر به درخواست‌ها دسترسی دارد.", 403);
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
-  const r = await DB.prepare("SELECT id,first_name,last_name,national_id,age,education,email,status,created_at,decided_at,used_at FROM applications ORDER BY (status='pending') DESC, created_at DESC LIMIT 300").all();
+  const r = await DB.prepare("SELECT id,first_name,last_name,phone,bale_number,bale_id,education,email,status,created_at,decided_at,used_at FROM applications ORDER BY (status='pending') DESC, created_at DESC LIMIT 300").all();
   return Response.json({ applications: r.results });
 }
 
