@@ -22,33 +22,65 @@ const STEPS = [
 export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLogin: () => void }) {
   const [page, setPage] = useState("");
   const [sub, setSub] = useState<Sub>("");
+  const go = (k: string) => { setPage(k); setSub(""); window.scrollTo({ top: 0 }); };
   const toggle = (s: Sub) => setSub(sub === s ? "" : s);
 
   return (
-    <main className="lp" dir="rtl">
-      <div className="lp-main">
-        <div className="lp-top">
-          <button type="button" className="lp-top-logo" aria-label="صفحه اصلی" onClick={() => { setPage(""); setSub(""); }}><img src="/razmi-logo.png" alt="رزمی چنین" /></button>
-          <button type="button" className="lp-top-btn primary" onClick={onRegister}>ثبت‌نام</button>
-          <button type="button" className="lp-top-btn" onClick={onLogin}>ورود</button>
+    <div className="lp2" dir="rtl">
+      <header className="lp2-nav">
+        <div className="lp2-nav-in">
+          <button type="button" className="lp2-brand" aria-label="صفحه اصلی" onClick={() => go("")}>
+            <img src="/razmi-logo.png" alt="رزمی چنین" />
+            <span>رزمی چنین</span>
+          </button>
+          <nav className="lp2-links" aria-label="بخش‌ها">
+            {MENU.filter((m) => m.label).map((m) => (
+              <button key={m.key} type="button" className={page === m.key ? "on" : ""} onClick={() => go(m.key)}>{m.label}</button>
+            ))}
+          </nav>
+          <div className="lp2-actions">
+            <button type="button" className="lp2-btn ghost" onClick={onLogin}>ورود</button>
+            <button type="button" className="lp2-btn gold" onClick={onRegister}>ثبت‌نام</button>
+          </div>
         </div>
-        {page === "" && (
-          <section className="lp-home lp-card">
-            <h1 className="lp-poem">رقصی چنین میانه‌ی میدانم آرزوست</h1>
-            <div className="lp-orn" aria-hidden="true"><span /><i>❖</i><span /></div>
-            <img className="lp-logo" src="/razmi-logo.png" alt="رزمی چنین" />
-            <p className="lp-intro">
-              طرح قرآنی «رزمی چنین» دوره‌ای است با محوریت قرآن کریم که می‌کوشد با تمسک به کلام الهی، قدمی در راه نورانی کردن جامعه بردارد. این دوره دعوتی است به شرکت در رزمی که سلاح آن، انس با قرآن است.
-            </p>
-            <p className="lp-intro">
-              دوره‌ی «رزمی چنین» بر آن است که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان ارتقا بخشد.
-            </p>
-          </section>
-        )}
+      </header>
 
+      {page === "" && (
+        <>
+          <section className="lp2-hero">
+            <div className="lp2-hero-in">
+              <h1 className="lp2-poem">رقصی چنین میانه‌ی میدانم آرزوست</h1>
+              <div className="lp2-orn" aria-hidden="true"><span /><i /><span /></div>
+              <p className="lp2-lead">
+                طرح قرآنی «رزمی چنین» دوره‌ای است با محوریت قرآن کریم که می‌کوشد با تمسک به کلام الهی، قدمی در راه نورانی کردن جامعه بردارد. این دوره دعوتی است به شرکت در رزمی که سلاح آن، انس با قرآن است.
+              </p>
+              <p className="lp2-sub">
+                دوره‌ی «رزمی چنین» بر آن است که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان ارتقا بخشد.
+              </p>
+              <div className="lp2-cta">
+                <button type="button" className="lp2-btn gold lg" onClick={onRegister}>ثبت‌نام در دوره</button>
+                <button type="button" className="lp2-btn outline lg" onClick={() => go("hefz")}>آشنایی با دوره</button>
+              </div>
+            </div>
+          </section>
+          <section className="lp2-cards">
+            <h2>مسیرهای آموزشی</h2>
+            <div className="lp2-grid">
+              {MENU.filter((m) => m.label).map((m) => (
+                <button key={m.key} type="button" className={"lp2-card" + (m.key === "hefz" ? " main" : "")} onClick={() => go(m.key)}>
+                  <b>{m.label}</b>
+                  <small>{m.key === "hefz" ? "نقشه راه، دوره آنلاین، دوره آفلاین و قوانین" : "به‌زودی"}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      <div className="lp2-wrap">
         {page === "hefz" && (
           <section className="lp-sec">
-            <button type="button" className="lp-back" onClick={() => { setPage(""); setSub(""); }}>← بازگشت</button>
+            <button type="button" className="lp-back" onClick={() => go("")}>← بازگشت</button>
             <h2>حفظ تدبری</h2>
             <h3>هدف از دوره</h3>
             <p>
@@ -113,24 +145,14 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
 
         {(page === "sireh" || page === "life" || page === "free") && (
           <section className="lp-sec">
-            <button type="button" className="lp-back" onClick={() => setPage("")}>← بازگشت</button>
+            <button type="button" className="lp-back" onClick={() => go("")}>← بازگشت</button>
             <h2>{MENU.find((m) => m.key === page)?.label}</h2>
             <p>به‌زودی.</p>
           </section>
         )}
 
       </div>
-
-      <nav className="lp-menu" aria-label="دوره‌ها">
-        <button type="button" className={"lp-item home" + (page === "" ? " on" : "")} onClick={() => { setPage(""); setSub(""); }}>صفحه اصلی</button>
-        {MENU.map((m) =>
-          m.label ? (
-            <button key={m.key} type="button" className={"lp-item" + (page === m.key ? " on" : "")} onClick={() => { setPage(m.key); setSub(""); }}>{m.label}</button>
-          ) : (
-            <div key={m.key} className="lp-item empty" aria-hidden="true">؟</div>
-          ),
-        )}
-      </nav>
-    </main>
+      <footer className="lp2-foot">رزمی چنین</footer>
+    </div>
   );
 }
