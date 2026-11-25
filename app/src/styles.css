@@ -293,3 +293,8 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .lp2-poem{text-wrap:balance;font-size:clamp(38px,7vw,64px);line-height:1.7}
 .lp2-hero::before{opacity:.035}
 .lp-gap{display:block;margin-top:14px}
+
+/* registry */
+.reg-tools{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}.reg-tools input,.reg-tools select{flex:1;min-width:120px}
+.reg-row{cursor:pointer}.reg-row span{font-size:12px;color:#5f6f64}.reg-count{display:block;text-align:center;color:#7a8a80;margin-top:8px}
+.reg-extra{white-space:pre-wrap;font:inherit;font-size:12px;line-height:1.9;background:#f6f4ea;border-radius:10px;padding:8px 10px}

@@ -21,6 +21,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
 import { Route as ApiLearningRouteImport } from './routes/api/learning'
 import { Route as ApiPlanRouteImport } from './routes/api/plan'
+import { Route as ApiRegistryRouteImport } from './routes/api/registry'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
@@ -88,6 +89,11 @@ const ApiPlanRoute = ApiPlanRouteImport.update({
   path: '/api/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRegistryRoute = ApiRegistryRouteImport.update({
+  id: '/api/registry',
+  path: '/api/registry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReportsRoute = ApiReportsRouteImport.update({
   id: '/api/reports',
   path: '/api/reports',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/registry'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/registry'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/registry'
     | '/api/reports'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -256,6 +268,7 @@ export interface RootRouteChildren {
   ApiInvitationsRoute: typeof ApiInvitationsRoute
   ApiLearningRoute: typeof ApiLearningRoute
   ApiPlanRoute: typeof ApiPlanRoute
+  ApiRegistryRoute: typeof ApiRegistryRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/registry': {
+      id: '/api/registry'
+      path: '/api/registry'
+      fullPath: '/api/registry'
+      preLoaderRoute: typeof ApiRegistryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reports': {
       id: '/api/reports'
       path: '/api/reports'
@@ -419,6 +439,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInvitationsRoute: ApiInvitationsRoute,
   ApiLearningRoute: ApiLearningRoute,
   ApiPlanRoute: ApiPlanRoute,
+  ApiRegistryRoute: ApiRegistryRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
