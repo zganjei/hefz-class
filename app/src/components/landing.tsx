@@ -28,6 +28,7 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
     <main className="lp" dir="rtl">
       <div className="lp-main">
         <div className="lp-top">
+          <button type="button" className="lp-top-logo" aria-label="صفحه‌ی اول" onClick={() => { setPage(""); setSub(""); }}><img src="/razmi-logo.png" alt="رزمی چنین" /></button>
           <button type="button" className="lp-top-btn primary" onClick={onRegister}>ثبت‌نام</button>
           <button type="button" className="lp-top-btn" onClick={onLogin}>ورود</button>
         </div>

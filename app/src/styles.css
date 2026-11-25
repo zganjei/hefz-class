@@ -237,3 +237,8 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 .lp-top{align-self:stretch;display:flex;gap:8px;justify-content:flex-start;margin-bottom:14px}
 .lp-top-btn{border:1.5px solid #174b3b;background:#fffdf7;color:#174b3b;border-radius:999px;padding:7px 22px;font-weight:700;font-size:13px}
 .lp-top-btn.primary{background:#174b3b;color:#fff}
+
+.lp-top{align-items:center;position:sticky;top:0;z-index:5;padding:6px 0;background:linear-gradient(#f7f4eaf0,#f7f4eaf0 80%,transparent)}
+.lp-top-logo{border:0;background:none;padding:0;display:flex;margin-inline-end:auto}
+.lp-top-logo img{height:42px;width:auto;border-radius:50%;background:#fff;padding:3px;box-shadow:0 0 0 1.5px #b68a4266}
+button.auth-mark{border:0;padding:0;cursor:pointer}
