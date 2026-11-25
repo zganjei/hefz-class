@@ -28,7 +28,7 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
     <main className="lp" dir="rtl">
       <div className="lp-main">
         <div className="lp-top">
-          <button type="button" className="lp-top-logo" aria-label="صفحه‌ی اول" onClick={() => { setPage(""); setSub(""); }}><img src="/razmi-logo.png" alt="رزمی چنین" /></button>
+          <button type="button" className="lp-top-logo" aria-label="صفحه اصلی" onClick={() => { setPage(""); setSub(""); }}><img src="/razmi-logo.png" alt="رزمی چنین" /></button>
           <button type="button" className="lp-top-btn primary" onClick={onRegister}>ثبت‌نام</button>
           <button type="button" className="lp-top-btn" onClick={onLogin}>ورود</button>
         </div>
@@ -122,7 +122,7 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
       </div>
 
       <nav className="lp-menu" aria-label="دوره‌ها">
-        <button type="button" className={"lp-item home" + (page === "" ? " on" : "")} onClick={() => { setPage(""); setSub(""); }}>صفحه‌ی اول</button>
+        <button type="button" className={"lp-item home" + (page === "" ? " on" : "")} onClick={() => { setPage(""); setSub(""); }}>صفحه اصلی</button>
         {MENU.map((m) =>
           m.label ? (
             <button key={m.key} type="button" className={"lp-item" + (page === m.key ? " on" : "")} onClick={() => { setPage(m.key); setSub(""); }}>{m.label}</button>
