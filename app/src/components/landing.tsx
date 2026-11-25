@@ -27,6 +27,10 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
   return (
     <main className="lp" dir="rtl">
       <div className="lp-main">
+        <div className="lp-top">
+          <button type="button" className="lp-top-btn primary" onClick={onRegister}>ثبت‌نام</button>
+          <button type="button" className="lp-top-btn" onClick={onLogin}>ورود</button>
+        </div>
         {page === "" && (
           <section className="lp-home lp-card">
             <h1 className="lp-poem">رقصی چنین میانه‌ی میدانم آرزوست</h1>
@@ -38,10 +42,6 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
             <p className="lp-intro">
               دوره‌ی «رزمی چنین» بر آن است که هر دو بالِ تدبر و حفظ را برای قرآن‌آموزان ارتقا بخشد.
             </p>
-            <div className="lp-cta">
-              <button type="button" className="landing-btn primary" onClick={onRegister}>ثبت‌نام</button>
-              <button type="button" className="landing-btn" onClick={onLogin}>ورود</button>
-            </div>
           </section>
         )}
 
@@ -106,7 +106,6 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
                   <p>عضویت در کانال «رزمی چنین» در پیام‌رسان بله الزامی است. برای مواردی مانند بارداری، زایمان و آزمون‌های تحصیلی، تدابیری برای مرخصی در نظر گرفته شده است.</p>
                 </div>
               )}
-              <button type="button" className="landing-btn primary" onClick={onRegister}>ثبت‌نام</button>
             </div>
           </section>
         )}

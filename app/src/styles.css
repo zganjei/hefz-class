@@ -233,3 +233,7 @@ body{background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif}
 .auth-back{background:none;border:0;color:#174b3b;font-size:13px;padding:0 0 8px;display:block}
 .m-seg{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}.m-seg button{flex:none}
 .lp-back{display:block}
+
+.lp-top{align-self:stretch;display:flex;gap:8px;justify-content:flex-start;margin-bottom:14px}
+.lp-top-btn{border:1.5px solid #174b3b;background:#fffdf7;color:#174b3b;border-radius:999px;padding:7px 22px;font-weight:700;font-size:13px}
+.lp-top-btn.primary{background:#174b3b;color:#fff}
