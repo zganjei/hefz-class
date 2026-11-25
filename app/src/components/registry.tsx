@@ -139,7 +139,7 @@ export function Registry() {
       </div>
       <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind]))}>خروجی اکسل</button></div>
       {!list.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
-      {list.map(p => <div className="simple-row reg-row" key={p.id} onClick={() => setEdit(p)}><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b><span>{TABLE_COLS[kind].slice(1).map(c => (p as any)[c]).filter(Boolean).join(" · ")}</span></div>)}
+      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
       <small className="reg-count">{list.length} مورد</small>
     </>}
 
