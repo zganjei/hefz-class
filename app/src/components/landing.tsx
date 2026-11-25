@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-type Sub = "" | "why1" | "why2" | "map" | "online" | "offline" | "rules";
+type Sub = "" | "why1" | "why2" | "map" | "types" | "rules";
 
 const MENU: { key: string; label: string }[] = [
   { key: "hefz", label: "حفظ تدبری" },
@@ -104,10 +104,6 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
               </p>
             </div>
               )}
-            </div>
-
-            <h3>بیشتر بدانید</h3>
-            <div className="lp-subs">
               <button type="button" className={"landing-btn" + (sub === "map" ? " on" : "")} onClick={() => toggle("map")}>نقشه راه</button>
               {sub === "map" && (
                 <div className="landing-info">
@@ -121,16 +117,15 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
                   </ol>
                 </div>
               )}
-              <button type="button" className={"landing-btn" + (sub === "online" ? " on" : "")} onClick={() => toggle("online")}>دوره آنلاین</button>
-              {sub === "online" && (
+              <button type="button" className={"landing-btn" + (sub === "types" ? " on" : "")} onClick={() => toggle("types")}>انواع دوره‌ها</button>
+              {sub === "types" && (
                 <div className="landing-info">
-                  <p>هفته‌ای یک جلسه‌ی یک تا یک‌ونیم ساعته در کلاس آنلاین شرکت می‌کنید و روزانه دست‌کم نیم ساعت برای حفظ قرآن وقت می‌گذارید. مطابق برنامه‌ی مجموعه، هفته‌ای یک صفحه قرآن را همراه با ترجمه و تدبر حفظ کرده و تحویل می‌دهید.</p>
-                </div>
-              )}
-              <button type="button" className={"landing-btn" + (sub === "offline" ? " on" : "")} onClick={() => toggle("offline")}>دوره آفلاین</button>
-              {sub === "offline" && (
-                <div className="landing-info">
-                  <p>طبق برنامه‌ی مجموعه، روزی یک آیه (پنج روز در هفته) حفظ می‌کنید و هفته‌ای بیست دقیقه تا نیم ساعت با پشتیبان خود برای تحویل حفظ و تدبر ارتباط دارید. صوت‌های آموزشی را هفتگی گوش می‌دهید؛ بنابراین روزانه دست‌کم نیم ساعت زمان لازم است.</p>
+                  <b>دوره آنلاین</b>
+                  <p>در این روش، قرآن‌آموزان هر هفته در جلسه‌ای یک‌ساعت‌ونیمه، به‌صورت مجازی و در بستر اسکای‌روم گردهم می‌آیند. استاد در این کلاس، نکات کلیدی حفظ و تدبر صفحه را تشریح می‌کند.</p>
+                  <p>شرکت‌کنندگان موظفند با پیروی از برنامه‌ی هفتگی، تمرین‌های حفظ را انجام داده و گزارش روزانه‌ی خود را بارگذاری کنند؛ همچنین برای تسلط بیشتر بر مباحث، می‌توانند نکات تدبری را از طریق کانال «درسنامه رزمی چنین» مرور کنند.</p>
+                  <b className="lp-gap">دوره آفلاین</b>
+                  <p>در این روش، قرآن‌آموزان موظف‌اند با توجه به برنامه‌ی ارائه‌شده از سوی مجموعه، روزانه یک آیه (پنج روز در هفته) حفظ کنند.</p>
+                  <p>محتوای تدبری این دوره به‌صورت فایل‌های صوتی و ویدئوهای کوتاه در نظر گرفته شده است که قرآن‌آموز باید ضمن مطالعه و گوش دادن دقیق به آن‌ها، گزارش روزانه‌ی خود را بارگذاری کند و هفته‌ای بیست دقیقه تا نیم ساعت نیز برای تحویل حفظ و تدبر با پشتیبان خود در ارتباط باشد.</p>
                 </div>
               )}
               <button type="button" className={"landing-btn" + (sub === "rules" ? " on" : "")} onClick={() => toggle("rules")}>قوانین</button>
