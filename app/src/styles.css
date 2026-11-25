@@ -252,3 +252,43 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .m-stepnav{margin-top:12px}
 .m-bar button span{font-size:10.5px}
 .m-seg.steps button{flex:1 1 0;padding:0 2px;font-size:12.5px;min-height:40px}
+
+/* ===== landing v3: professional ===== */
+.lp2{min-height:100vh;background:#f7f4ea;color:#26362e;font-family:'Vazirmatn',Tahoma,sans-serif;display:flex;flex-direction:column}
+.lp2-nav{position:sticky;top:0;z-index:20;background:#10392fee;backdrop-filter:blur(8px);border-bottom:1px solid #ffffff1a}
+.lp2-nav-in{max-width:1080px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.lp2-brand{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;color:#f7f4ea;font:inherit;font-weight:800;font-size:16px}
+.lp2-brand img{height:38px;width:38px;object-fit:contain;border-radius:50%;background:#fff;padding:3px}
+.lp2-links{display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none}
+.lp2-links::-webkit-scrollbar{display:none}
+.lp2-links button{flex:none;background:none;border:0;color:#dce7da;font:inherit;font-size:13.5px;padding:8px 12px;border-radius:8px;white-space:nowrap}
+.lp2-links button:hover{background:#ffffff14;color:#fff}.lp2-links button.on{color:#e3c27e;background:#ffffff14}
+.lp2-actions{display:flex;gap:8px;margin-inline-start:auto}
+.lp2-btn{border-radius:10px;padding:9px 18px;font:inherit;font-size:13.5px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all .18s}
+.lp2-btn.gold{background:#c9a24d;color:#10392f}.lp2-btn.gold:hover{background:#d9b360}
+.lp2-btn.ghost{background:none;color:#f7f4ea;border-color:#ffffff40}.lp2-btn.ghost:hover{background:#ffffff14}
+.lp2-btn.outline{background:none;color:#f7f4ea;border-color:#f7f4ea88}.lp2-btn.outline:hover{background:#ffffff18}
+.lp2-btn.lg{padding:13px 28px;font-size:15px;border-radius:12px}
+.lp2-hero{background:radial-gradient(1200px 500px at 50% -10%,#1f6a52 0,transparent 60%),linear-gradient(180deg,#10392f,#0c2d25);color:#f7f4ea;position:relative;overflow:hidden}
+.lp2-hero::before{content:"";position:absolute;inset:0;opacity:.07;background-image:repeating-conic-gradient(from 45deg at 50% 50%,#fff 0 12.5%,transparent 0 25%);background-size:44px 44px}
+.lp2-hero-in{position:relative;max-width:760px;margin:0 auto;padding:72px 22px 84px;text-align:center}
+.lp2-poem{font-family:'Aref Ruqaa','Vazirmatn',serif;font-weight:700;font-size:clamp(40px,8vw,76px);line-height:1.65;margin:0;color:#fbf3dc;text-shadow:0 2px 24px #0006}
+.lp2-orn{display:flex;align-items:center;gap:14px;max-width:220px;margin:18px auto 26px}
+.lp2-orn span{flex:1;height:1px;background:linear-gradient(90deg,transparent,#c9a24d)}.lp2-orn span:last-child{background:linear-gradient(270deg,transparent,#c9a24d)}
+.lp2-orn i{width:9px;height:9px;background:#c9a24d;transform:rotate(45deg)}
+.lp2-lead{font-size:clamp(15px,2.2vw,17px);line-height:2.2;color:#e8eee4;margin:0 auto 14px;max-width:640px}
+.lp2-sub{font-size:15px;line-height:2;color:#e3c27e;font-weight:600;margin:0 0 30px}
+.lp2-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.lp2-cards{max-width:1080px;margin:0 auto;padding:44px 16px 52px;width:100%}
+.lp2-cards h2{font-size:20px;color:#174b3b;margin:0 0 18px;text-align:center}
+.lp2-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.lp2-card{display:flex;flex-direction:column;gap:8px;text-align:right;background:#fffdf7;border:1px solid #e6dcc3;border-radius:16px;padding:22px 20px;font:inherit;color:#174b3b;box-shadow:0 8px 26px -20px #174b3b;transition:transform .18s,box-shadow .18s}
+.lp2-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px -18px #174b3b}
+.lp2-card b{font-size:17px}.lp2-card small{color:#7a8a80;font-size:12.5px;line-height:1.8}
+.lp2-card.main{background:#174b3b;color:#fbf3dc;border-color:#174b3b}.lp2-card.main small{color:#c9d8cb}
+.lp2-wrap{flex:1;width:100%;max-width:760px;margin:0 auto;padding:28px 16px 40px}
+.lp2-wrap .lp-sec{max-width:none}
+.lp2-foot{text-align:center;padding:18px;font-size:12.5px;color:#7a8a80;border-top:1px solid #e6dcc3}
+@media(max-width:640px){.lp2-nav-in{gap:8px 10px}.lp2-links{order:3;flex-basis:100%}.lp2-brand span{display:none}.lp2-hero-in{padding:48px 18px 56px}.lp2-btn.lg{flex:1}}
+.lp2-poem{text-wrap:balance;font-size:clamp(38px,7vw,64px);line-height:1.7}
+.lp2-hero::before{opacity:.035}
