@@ -26,6 +26,7 @@ import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth.me'
+import { Route as ApiAuthPhoneRouteImport } from './routes/api/auth.phone'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth.register'
 import { Route as ApiReportsReviewRouteImport } from './routes/api/reports.review'
 
@@ -114,6 +115,11 @@ const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   path: '/api/auth/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthPhoneRoute = ApiAuthPhoneRouteImport.update({
+  id: '/api/auth/phone',
+  path: '/api/auth/phone',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthRegisterRoute = ApiAuthRegisterRouteImport.update({
   id: '/api/auth/register',
   path: '/api/auth/register',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/phone': typeof ApiAuthPhoneRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/reports/review': typeof ApiReportsReviewRoute
 }
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/phone': typeof ApiAuthPhoneRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/reports/review': typeof ApiReportsReviewRoute
 }
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/phone': typeof ApiAuthPhoneRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/reports/review': typeof ApiReportsReviewRoute
 }
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/phone'
     | '/api/auth/register'
     | '/api/reports/review'
   fileRoutesByTo: FileRoutesByTo
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/phone'
     | '/api/auth/register'
     | '/api/reports/review'
   id:
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/phone'
     | '/api/auth/register'
     | '/api/reports/review'
   fileRoutesById: FileRoutesById
@@ -273,6 +285,7 @@ export interface RootRouteChildren {
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthPhoneRoute: typeof ApiAuthPhoneRoute
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
 }
 
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthMeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/phone': {
+      id: '/api/auth/phone'
+      path: '/api/auth/phone'
+      fullPath: '/api/auth/phone'
+      preLoaderRoute: typeof ApiAuthPhoneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/register': {
       id: '/api/auth/register'
       path: '/api/auth/register'
@@ -444,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthPhoneRoute: ApiAuthPhoneRoute,
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,
 }
 export const routeTree = rootRouteImport
