@@ -292,3 +292,4 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 @media(max-width:640px){.lp2-nav-in{gap:8px 10px}.lp2-links{order:3;flex-basis:100%}.lp2-brand span{display:none}.lp2-hero-in{padding:48px 18px 56px}.lp2-btn.lg{flex:1}}
 .lp2-poem{text-wrap:balance;font-size:clamp(38px,7vw,64px);line-height:1.7}
 .lp2-hero::before{opacity:.035}
+.lp-gap{display:block;margin-top:14px}
