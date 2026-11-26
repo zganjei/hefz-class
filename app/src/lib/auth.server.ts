@@ -1,6 +1,7 @@
 import { bindings } from "./bindings.server";
 import { canManageClass } from "./access.server";
 import { applicationForEmail } from "./applications.server";
+import { normalizePhone } from "./phone-auth.server";
 
 const encoder = new TextEncoder();
 const DAY = 60 * 60 * 24;
@@ -53,16 +54,59 @@ export async function currentUser(request: Request): Promise<SessionUser | null>
 export function sessionCookie(token: string, maxAge = DAY * 14) {
   return `hifz_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
-export async function login(request: Request, email: string, password: string) {
+export async function login(request: Request, identifier: string, password: string) {
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
-  const user = await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(email.toLowerCase()).first<SessionUser & { password_hash: string }>();
-  if (!user || !(await verifyPassword(password, user.password_hash))) return jsonError("ایمیل یا گذرواژه صحیح نیست.", 401);
+  const id = identifier.trim();
+  const phone = id.includes("@") ? null : normalizePhone(id);
+  const user = phone
+    ? await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE active=1 AND RIGHT(REGEXP_REPLACE(COALESCE(phone,''),'[^0-9]','','g'),10)=?").bind(phone.slice(-10)).first<SessionUser & { password_hash: string }>()
+    : await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(id.toLowerCase()).first<SessionUser & { password_hash: string }>();
+  if (!user || !(await verifyPassword(password, user.password_hash))) return jsonError("شماره/ایمیل یا گذرواژه صحیح نیست.", 401);
   const token = crypto.randomUUID();
   const expires = new Date(Date.now() + DAY * 14 * 1000).toISOString();
   await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(token, user.id, expires).run();
   const headers = new Headers({ "Set-Cookie": sessionCookie(token) });
   return Response.json({ user: { id: user.id, email: user.email, display_name: user.display_name, role: user.role } }, { headers });
+}
+function randomPassword() {
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, b => alphabet[b % alphabet.length]).join("");
+}
+/** Logged-in user sets their own sign-in phone number and password. */
+export async function setOwnCredentials(request: Request, body: Record<string, unknown>) {
+  const user = await currentUser(request);
+  if (!user) return jsonError("ابتدا وارد شوید.", 401);
+  const { DB } = bindings();
+  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  const phone = normalizePhone(body.phone);
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!phone) return jsonError("شماره‌ی همراه را درست بنویسید (مثل ۰۹۱۲۱۲۳۴۵۶۷).");
+  if (password.length < 8) return jsonError("گذرواژه دست‌کم ۸ نویسه باشد.");
+  const taken = await DB.prepare("SELECT id FROM users WHERE phone=? AND id<>?").bind(phone, user.id).first();
+  if (taken) return jsonError("این شماره برای حساب دیگری ثبت شده است.", 409);
+  await DB.prepare("UPDATE users SET phone=?,password_hash=? WHERE id=?").bind(phone, await hashPassword(password), user.id).run();
+  return Response.json({ ok: true });
+}
+/** Admin creates a teacher/admin account that signs in with phone + random password (shown once). */
+export async function createStaffAccount(request: Request, body: Record<string, unknown>) {
+  const { user, response } = await requireRole(request, ["admin"]);
+  if (!user) return response!;
+  const { DB } = bindings();
+  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  const phone = normalizePhone(body.phone);
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
+  const role = body.role === "admin" ? "admin" : "teacher";
+  if (!phone || !name) return jsonError("نام و شماره‌ی همراه لازم است.");
+  const taken = await DB.prepare("SELECT id FROM users WHERE phone=?").bind(phone).first();
+  if (taken) return jsonError("این شماره قبلاً ثبت شده است.", 409);
+  const password = randomPassword();
+  try {
+    await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role,phone) VALUES (?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(), `${phone}@phone.invalid`, name, await hashPassword(password), role, phone).run();
+  } catch { return jsonError("ساخت حساب انجام نشد.", 409); }
+  return Response.json({ phone, password, role });
 }
 // Password sign-up is disabled: it never proved that the person owns the invited email.
 // New accounts are created only through Google sign-in (verified email), see registerOrLoginWithGoogle.

@@ -23,6 +23,8 @@ import { Route as ApiLearningRouteImport } from './routes/api/learning'
 import { Route as ApiPlanRouteImport } from './routes/api/plan'
 import { Route as ApiRegistryRouteImport } from './routes/api/registry'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
+import { Route as ApiStaffRouteImport } from './routes/api/staff'
+import { Route as ApiAuthCredentialsRouteImport } from './routes/api/auth.credentials'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth.me'
@@ -100,6 +102,16 @@ const ApiReportsRoute = ApiReportsRouteImport.update({
   path: '/api/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStaffRoute = ApiStaffRouteImport.update({
+  id: '/api/staff',
+  path: '/api/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthCredentialsRoute = ApiAuthCredentialsRouteImport.update({
+  id: '/api/auth/credentials',
+  path: '/api/auth/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
   id: '/api/auth/login',
   path: '/api/auth/login',
@@ -146,6 +158,8 @@ export interface FileRoutesByFullPath {
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/staff': typeof ApiStaffRoute
+  '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
@@ -168,6 +182,8 @@ export interface FileRoutesByTo {
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/staff': typeof ApiStaffRoute
+  '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
@@ -191,6 +207,8 @@ export interface FileRoutesById {
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/staff': typeof ApiStaffRoute
+  '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
@@ -215,6 +233,8 @@ export interface FileRouteTypes {
     | '/api/plan'
     | '/api/registry'
     | '/api/reports'
+    | '/api/staff'
+    | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
@@ -237,6 +257,8 @@ export interface FileRouteTypes {
     | '/api/plan'
     | '/api/registry'
     | '/api/reports'
+    | '/api/staff'
+    | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
@@ -259,6 +281,8 @@ export interface FileRouteTypes {
     | '/api/plan'
     | '/api/registry'
     | '/api/reports'
+    | '/api/staff'
+    | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
@@ -282,6 +306,8 @@ export interface RootRouteChildren {
   ApiPlanRoute: typeof ApiPlanRoute
   ApiRegistryRoute: typeof ApiRegistryRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
+  ApiStaffRoute: typeof ApiStaffRoute
+  ApiAuthCredentialsRoute: typeof ApiAuthCredentialsRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
@@ -389,6 +415,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/staff': {
+      id: '/api/staff'
+      path: '/api/staff'
+      fullPath: '/api/staff'
+      preLoaderRoute: typeof ApiStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/credentials': {
+      id: '/api/auth/credentials'
+      path: '/api/auth/credentials'
+      fullPath: '/api/auth/credentials'
+      preLoaderRoute: typeof ApiAuthCredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/login': {
       id: '/api/auth/login'
       path: '/api/auth/login'
@@ -461,6 +501,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPlanRoute: ApiPlanRoute,
   ApiRegistryRoute: ApiRegistryRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
+  ApiStaffRoute: ApiStaffRoute,
+  ApiAuthCredentialsRoute: ApiAuthCredentialsRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
