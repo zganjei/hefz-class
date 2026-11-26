@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
-import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
+import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, isIsoDate, locateDay, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
 import { resolveRange, quranComUrl, tadabburFor, audioFor, translationFor } from "../../lib/quran.server";
 
 const TRACK = "online";   // an offline track will reuse hefz_daily_ticks.track later
@@ -26,14 +26,20 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
   const currentWeek = dated.length ? dated[dated.length - 1].week_number : null;
 
   if (url.searchParams.get("today")) {   // learner's checklist for today (online track)
-   const week = all.find(w => w.week_number === currentWeek);
-   const idx = week?.start_date ? dayIndexOf(week.start_date, today) : null;
-   if (!week || !week.start_date || idx === null) return Response.json({ track: TRACK, today, week: null, day: null, items: [] });
+   const dateParam = url.searchParams.get("date");
+   if (dateParam !== null && !isIsoDate(dateParam)) return jsonError("تاریخ نامعتبر است.");
+   const target = dateParam ?? today;
+   const openDated = all.filter(w => w.start_date && isOpen(w, today));   // weeks not yet opened stay hidden
+   const hit = locateDay(openDated, target);
+   if (!hit) { if (dateParam !== null) return jsonError("برای این روز برنامه‌ای وجود ندارد.", 404); return Response.json({ track: TRACK, today, week: null, day: null, items: [] }); }
+   const week = hit.week, idx = hit.idx;
+   const date = addDays(week.start_date!, idx);
+   const prev = addDays(date, -1), next = addDays(date, 1);
    const day = week.days[idx];
    const ticks = (await DB.prepare("SELECT item FROM hefz_daily_ticks WHERE user_id=? AND track=? AND week_number=? AND day_index=?").bind(user.id, TRACK, week.week_number, idx).all<{ item: string }>()).results || [];
    const weekly = await DB.prepare("SELECT 1 AS x FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, week.week_number, idx).first<{ x: number }>();
    const done = new Set(ticks.map(t => t.item)); if (weekly) done.add("memorize");
-   return Response.json({ track: TRACK, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], jdate: jalaliLabel(addDays(week.start_date, idx)), kind: day.kind },
+   return Response.json({ track: TRACK, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], date, jdate: jalaliLabel(date), kind: day.kind, isToday: date === today, future: date > today, prev: locateDay(openDated, prev) ? prev : null, next: locateDay(openDated, next) ? next : null },
     items: DAILY_ITEMS.map(key => { const ranges = itemRanges(key, day); return { key, label: ITEM_LABELS[key], ranges, done: done.has(key),
      ...(key === "memorize" ? { links: ranges.map(quranComUrl) } : {}), ...(key === "listen" ? { audio: ranges.map(audioFor) } : {}), ...(key === "translate" ? { translation: ranges.map(translationFor) } : {}), ...(key === "tadabbur" ? { tadabbur: ranges.map(tadabburFor) } : {}) }; }) });
   }

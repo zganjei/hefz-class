@@ -16,7 +16,7 @@ type Tadabbur = { author: string; series: string; url: string; note?: string; su
 type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; links?: (string | null)[]; tadabbur?: (Tadabbur | null)[]; audio?: (AudioInfo | null)[]; translation?: (TranslationInfo | null)[] };
 type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
 type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
-type Today = { week: { week_number: number; title: string } | null; day: { index: number; name: string; jdate: string; kind: string } | null; items: TodayItem[] };
+type Today = { week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
 type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
 
 function VerseAudio({ info }: { info: AudioInfo }) {
@@ -44,36 +44,45 @@ function VerseAudio({ info }: { info: AudioInfo }) {
 
 function TodayChecklist() {
   const [data, setData] = useState<Today | null>(null), [msg, setMsg] = useState(""), [open, setOpen] = useState<string | null>(null), [cache, setCache] = useState<Record<string, VerseBlock | null>>({});
-  const load = useCallback(async () => { try { setData(await call("/api/plan?today=1")); setMsg(""); } catch (e: any) { setMsg(e.message); } }, []);
+  const [date, setDate] = useState<string | null>(null);   // null = today
+  const load = useCallback(async () => { try { setData(await call("/api/plan?today=1" + (date ? `&date=${date}` : ""))); setMsg(""); } catch (e: any) { setMsg(e.message); } }, [date]);
   useEffect(() => { void load(); }, [load]);
   const tick = async (it: TodayItem) => {
-    if (!data?.week || !data.day) return;
+    if (!data?.week || !data.day || data.day.future) return;
     const next = !it.done;
     setData(d => d && { ...d, items: d.items.map(x => x.key === it.key ? { ...x, done: next } : x) });
     try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
   };
-  const show = async (range: string) => {
-    setOpen(o => o === range ? null : range);
+  const show = async (k: string) => {
+    const range = k.slice(k.indexOf("|") + 1);
+    setOpen(o => o === k ? null : k);
     if (range in cache) return;
     try { const d = await call(`/api/plan?verses=${encodeURIComponent(range)}`); setCache(c => ({ ...c, [range]: d.blocks[0] ?? null })); } catch { setCache(c => ({ ...c, [range]: null })); }
   };
   if (!data) return msg ? <p className="error-msg">{msg}</p> : null;
   if (!data.day || !data.week) return null;
+  const day = data.day;
   const doneN = data.items.filter(i => i.done).length;
   return <article className="plan-week current today-card">
-    <div className="plan-week-head static"><div><b>برنامهٔ امروز · {data.day.name} {data.day.jdate}</b><small>هفتهٔ {fa(data.week.week_number)} · {data.week.title} · {fa(doneN)} از {fa(data.items.length)}</small></div></div>
+    <div className="plan-week-head static"><div><b>{day.isToday ? "برنامهٔ امروز" : day.future ? "برنامهٔ روز آینده" : "برنامهٔ روز گذشته"} · {day.name} {day.jdate}</b><small>هفتهٔ {fa(data.week.week_number)} · {data.week.title} · {fa(doneN)} از {fa(data.items.length)}</small></div></div>
+    <div className="plan-toolbar" role="navigation" aria-label="جابه‌جایی بین روزها">
+      <button type="button" className="plan-more" disabled={!day.prev} onClick={() => day.prev && setDate(day.prev)}>→ روز قبل</button>
+      <button type="button" className="plan-more" disabled={day.isToday} onClick={() => setDate(null)}>امروز</button>
+      <button type="button" className="plan-more" disabled={!day.next} onClick={() => day.next && setDate(day.next)}>روز بعد ←</button>
+    </div>
+    {day.future && <p className="plan-hint">این روز هنوز نرسیده است؛ فقط می‌توانید برنامه را ببینید و تیک زدن بعداً ممکن می‌شود.</p>}
     {msg && <p className="error-msg">{msg}</p>}
     <div className="m-days">
       {data.items.map(it => <div key={it.key} className={"m-day" + (it.done ? " done" : "")}>
-        <label className="m-check"><input type="checkbox" checked={it.done} onChange={() => void tick(it)} aria-label={it.label} /><span /></label>
+        <label className="m-check"><input type="checkbox" checked={it.done} disabled={day.future} onChange={() => void tick(it)} aria-label={it.label} /><span /></label>
         <div className="m-day-body">
           <div className="m-day-top"><b>{it.label}</b></div>
-          {it.ranges.length ? it.ranges.map((r, ri) => <div key={r}>
-            <button type="button" className="range-link" onClick={() => void show(r)}>{r}</button>
+          {it.ranges.length ? it.ranges.map((r, ri) => <div key={r + ri}>
+            <button type="button" className="range-link" onClick={() => void show(it.key + "|" + r)}>{r}</button>
             {it.links?.[ri] && <> <a className="range-link" href={it.links[ri]!} target="_blank" rel="noopener noreferrer">متن در quran.com ↗</a></>}
-          </div>) : <div className="m-new">—</div>}
+          </div>) : <div className="m-new">{["memorize", "listen", "translate", "tadabbur"].includes(it.key) ? (day.kind === "rest" ? "امروز روز استراحت است" : "امروز آیه‌ی جدید ندارد") : "—"}</div>}
         </div>
-        <div className="m-day-wide">{it.ranges.map((r, ri) => <div key={r}>
+        <div className="m-day-wide">{it.ranges.map((r, ri) => <div key={r + ri}>
             {it.tadabbur?.[ri] && <div className="tadabbur-notes">
               {it.tadabbur[ri]!.summaries.map((x, i) => <p key={i}>{x.summary} <a href={x.url} target="_blank" rel="noopener noreferrer">منبع ↗</a></p>)}
               {it.tadabbur[ri]!.note && <p>{it.tadabbur[ri]!.note}</p>}
@@ -87,7 +96,7 @@ function TodayChecklist() {
                 <small> (ترجمهٔ کامل آیات؛ فهرست لغات کلیدی از منبع معتبر در دسترس نبود.)</small>
               </div>
               : <p className="empty-state">ترجمهٔ این محدوده موجود نیست.</p>)}
-            {open === r && (cache[r] === undefined ? <p className="empty-state">در حال بارگذاری…</p> : cache[r] ? <p className="verse-text" dir="rtl" lang="ar">{cache[r]!.verses.map(v => <span key={v.n}>{v.text} ﴿{fa(v.n)}﴾ </span>)}</p> : <p className="error-msg">متن این محدوده پیدا نشد.</p>)}
+            {open === it.key + "|" + r && (cache[r] === undefined ? <p className="empty-state">در حال بارگذاری…</p> : cache[r] ? <p className="verse-text" dir="rtl" lang="ar">{cache[r]!.verses.map(v => <span key={v.n}>{v.text} ﴿{fa(v.n)}﴾ </span>)}</p> : <p className="error-msg">متن این محدوده پیدا نشد.</p>)}
           </div>)}</div>
       </div>)}
     </div>
