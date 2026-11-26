@@ -1,0 +1,59 @@
+{
+ "_comment": "Notes on Ali Saboohi Tasouji's series 'تدبر در قرآن کریم' (alisaboohi.com). The site organises content per surah as video sessions ('بخش') without stated verse ranges, so only surah-level links/notes are stored. 'ranges' holds {from,to,summary,url} entries (own-words summaries) resolved by overlap; empty because the source does not support per-range summaries.",
+ "author": "علی صبوحی طسوجی",
+ "series": "تدبر در قرآن کریم",
+ "surahs": {
+  "8": {
+   "name": "انفال",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%A7%D9%86%D9%81%D8%A7%D9%84/",
+   "ranges": []
+  },
+  "33": {
+   "name": "احزاب",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%A7%D8%AD%D8%B2%D8%A7%D8%A8/",
+   "ranges": []
+  },
+  "47": {
+   "name": "محمد",
+   "url": "https://alisaboohi.com/%d8%aa%d8%af%d8%a8%d8%b1-%d8%af%d8%b1-%d8%b3%d9%88%d8%b1%d9%87%d9%87%d8%a7%db%8c-%d9%82%d8%b1%d8%a2%d9%86-%da%a9%d8%b1%db%8c%d9%85/%d8%aa%d8%af%d8%a8%d8%b1-%d8%af%d8%b1-%d8%b3%d9%88%d8%b1%d9%87-%d9%85%d8%ad%d9%85%d8%af-%d8%b5%d9%84%db%8c%d8%a7%d9%84%d9%84%d9%87%d8%b9%d9%84%db%8c%d9%87%d9%88%d8%a2%d9%84/",
+   "ranges": []
+  },
+  "48": {
+   "name": "فتح",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D9%81%D8%AA%D8%AD/",
+   "note": "در این صفحه ۱۷ جلسهٔ ویدیویی تدبر در سورهٔ فتح (دو دوره: ۷ بخش و ۱۰ بخش) و درس‌گفتار «ولایت‌پذیری در مسیر جهاد علیه کافران» هست؛ محدودهٔ آیات هر جلسه در سایت ذکر نشده است.",
+   "ranges": []
+  },
+  "49": {
+   "name": "حجرات",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%AD%D8%AC%D8%B1%D8%A7%D8%AA/",
+   "note": "در این صفحه ۹ جلسهٔ ویدیویی تدبر در سورهٔ حجرات و درس‌گفتار «تثبیت نظام ولایی» هست؛ محدودهٔ آیات هر جلسه در سایت ذکر نشده است.",
+   "ranges": []
+  },
+  "59": {
+   "name": "حشر",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%AD%D8%B4%D8%B1/",
+   "ranges": []
+  },
+  "60": {
+   "name": "ممتحنه",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D9%85%D9%85%D8%AA%D8%AD%D9%86%D9%87/",
+   "ranges": []
+  },
+  "61": {
+   "name": "صف",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%B5%D9%81/",
+   "ranges": []
+  },
+  "62": {
+   "name": "جمعه",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D8%AC%D9%85%D8%B9%D9%87/",
+   "ranges": []
+  },
+  "63": {
+   "name": "منافقون",
+   "url": "https://alisaboohi.com/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87%D9%87%D8%A7%DB%8C-%D9%82%D8%B1%D8%A2%D9%86-%DA%A9%D8%B1%DB%8C%D9%85/%D8%AA%D8%AF%D8%A8%D8%B1-%D8%AF%D8%B1-%D8%B3%D9%88%D8%B1%D9%87-%D9%85%D9%86%D8%A7%D9%81%D9%82%D9%88%D9%86/",
+   "ranges": []
+  }
+ }
+}

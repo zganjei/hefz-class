@@ -1,6 +1,7 @@
 // Uthmani text of the surahs used by the plan (Tanzil "quran-uthmani" edition, bismillah stripped from verse 1).
 // Tanzil text is free to use unmodified with attribution: https://tanzil.net
 import text from "./quran-uthmani.json";
+import notesData from "./tadabbur-notes.json";
 
 const SURAH: Record<string, string> = { "انفال": "8", "احزاب": "33", "محمد": "47", "فتح": "48", "حجرات": "49", "حشر": "59", "ممتحنه": "60", "صف": "61", "جمعه": "62", "منافقون": "63" };
 const en = (s: string) => s.replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
@@ -19,4 +20,30 @@ export function resolveRange(range: string): VerseBlock | null {
   if (from < 1 || to > list.length || from > to) return null;
   const pick = m[3] === "و" ? [from, to] : Array.from({ length: to - from + 1 }, (_, i) => from + i);
   return { range, surah: m[5], verses: pick.map(n => ({ n, text: list[n - 1] })) };
+}
+
+/** Parses a plan range into surah number + inclusive verse span (whole surah when no verses given). */
+export function parseRange(range: string): { surah: string; from: number; to: number } | null {
+  const m = en(range).trim().match(/^(?:(آیه|آیات)\s+(\d+)(?:\s+(تا|و)\s+(\d+))?\s+)?سوره\s+(?:ال)?(\S+)$/);
+  if (!m) return null;
+  const key = SURAH[m[5]], list = key && verses[key];
+  if (!list) return null;
+  const from = m[2] ? Number(m[2]) : 1, to = m[2] ? Number(m[4] || m[2]) : list.length;
+  if (from < 1 || to > list.length || from > to) return null;
+  return { surah: key, from, to };
+}
+/** quran.com link for the range, e.g. https://quran.com/48/1-9 (or /48 for a whole surah). */
+export function quranComUrl(range: string): string | null {
+  const r = parseRange(range); if (!r) return null;
+  const whole = r.from === 1 && r.to === verses[r.surah].length;
+  return `https://quran.com/${r.surah}` + (whole ? "" : `/${r.from}${r.to > r.from ? "-" + r.to : ""}`);
+}
+type SurahNotes = { name: string; url: string; note?: string; ranges: { from: number; to: number; summary: string; url?: string }[] };
+export type TadabburInfo = { author: string; series: string; url: string; note?: string; summaries: { summary: string; url: string }[] };
+/** Tadabbur info for a range: own-words summaries whose verse span overlaps, plus the surah page link. */
+export function tadabburFor(range: string): TadabburInfo | null {
+  const r = parseRange(range); if (!r) return null;
+  const s = (notesData.surahs as Record<string, SurahNotes>)[r.surah]; if (!s) return null;
+  return { author: notesData.author, series: notesData.series, url: s.url, note: s.note,
+    summaries: s.ranges.filter(x => x.from <= r.to && x.to >= r.from).map(x => ({ summary: x.summary, url: x.url || s.url })) };
 }
