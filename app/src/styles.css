@@ -309,5 +309,7 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .lp2-lead{margin-bottom:30px}
 
 .m-plan .range-link{background:transparent!important;color:#2f7a57!important;border:0;padding:4px 0!important;min-height:44px;text-align:right;font-size:16px;text-decoration:underline dotted}
-.m-plan .verse-text{font-family:"Amiri","Scheherazade New","Noto Naskh Arabic",serif;font-size:24px;line-height:2.2;color:#26362e;margin:4px 0 8px;background:#f8f4e8;border-radius:12px;padding:10px 12px}
+.m-plan .verse-text{font-family:"Amiri","Scheherazade New","Noto Naskh Arabic",serif;font-size:17px;line-height:2.1;color:#26362e;margin:4px 0 8px;background:#f8f4e8;border-radius:12px;padding:10px 12px}
 .m-plan .tadabbur-notes{font-size:13px;line-height:1.9;color:#44564c;margin:4px 0 6px}.m-plan .tadabbur-notes p{margin:2px 0}.m-plan a.range-link{text-decoration:none}
+
+.today-card .m-day{flex-wrap:wrap}.today-card .m-day-wide{flex:0 0 100%;width:100%;min-width:0}.today-card .m-day-wide .verse-text{width:100%;box-sizing:border-box;margin:4px 0 6px;padding:10px 14px}

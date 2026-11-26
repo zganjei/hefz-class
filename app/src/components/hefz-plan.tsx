@@ -46,14 +46,16 @@ function TodayChecklist() {
           {it.ranges.length ? it.ranges.map((r, ri) => <div key={r}>
             <button type="button" className="range-link" onClick={() => void show(r)}>{r}</button>
             {it.links?.[ri] && <> <a className="range-link" href={it.links[ri]!} target="_blank" rel="noopener noreferrer">متن در quran.com ↗</a></>}
+          </div>) : <div className="m-new">—</div>}
+        </div>
+        <div className="m-day-wide">{it.ranges.map((r, ri) => <div key={r}>
             {it.tadabbur?.[ri] && <div className="tadabbur-notes">
               {it.tadabbur[ri]!.summaries.map((x, i) => <p key={i}>{x.summary} <a href={x.url} target="_blank" rel="noopener noreferrer">منبع ↗</a></p>)}
               {it.tadabbur[ri]!.note && <p>{it.tadabbur[ri]!.note}</p>}
               <small>{it.tadabbur[ri]!.series} — {it.tadabbur[ri]!.author} · <a href={it.tadabbur[ri]!.url} target="_blank" rel="noopener noreferrer">صفحهٔ سوره در alisaboohi.com ↗</a></small>
             </div>}
             {open === r && (cache[r] === undefined ? <p className="empty-state">در حال بارگذاری…</p> : cache[r] ? <p className="verse-text" dir="rtl" lang="ar">{cache[r]!.verses.map(v => <span key={v.n}>{v.text} ﴿{fa(v.n)}﴾ </span>)}</p> : <p className="error-msg">متن این محدوده پیدا نشد.</p>)}
-          </div>) : <div className="m-new">—</div>}
-        </div>
+          </div>)}</div>
       </div>)}
     </div>
   </article>;
