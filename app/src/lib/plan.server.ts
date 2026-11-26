@@ -28,11 +28,21 @@ export function jalaliLabel(iso: string): string {
 export const DAILY_ITEMS = ["listen", "memorize", "translate", "tadabbur", "review10", "reviewAll"] as const;
 export type DailyItem = (typeof DAILY_ITEMS)[number];
 export const ITEM_LABELS: Record<DailyItem, string> = { listen: "استماع", memorize: "حفظ", translate: "ترجمه", tadabbur: "تدبر", review10: "مرور ده درس", reviewAll: "مرور سبد کل" };
-/** Day ranges per item: listen/memorize/translate/tadabbur use the day's `new`; review10 = `review`; reviewAll = `basket`. */
+/** Day ranges per item: listen/memorize/translate/tadabbur use the day's `new` only (empty on rest/class days); review10 = `review`; reviewAll = `basket`. */
 export function itemRanges(item: DailyItem, d: { new: string | null; review: string[]; basket: string[] }): string[] {
   if (item === "review10") return d.review;
   if (item === "reviewAll") return d.basket;
   return d.new ? [d.new] : [];
+}
+/** Strict "YYYY-MM-DD" check (real calendar date). */
+export function isIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + "T12:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+/** Locates `date` inside the dated weeks: its week and day index, or null. */
+export function locateDay<W extends { start_date: string | null }>(weeks: W[], date: string): { week: W; idx: number } | null {
+  for (const w of weeks) { if (!w.start_date) continue; const idx = dayIndexOf(w.start_date, date); if (idx !== null) return { week: w, idx }; }
+  return null;
 }
 /** Day index (0..6) of `today` within the week starting `start`, or null if outside. */
 export function dayIndexOf(start: string, today: string): number | null {
