@@ -2,6 +2,7 @@
 // Tanzil text is free to use unmodified with attribution: https://tanzil.net
 import text from "./quran-uthmani.json";
 import notesData from "./tadabbur-notes.json";
+import bahrampour from "./bahrampour-fa.json";
 
 const SURAH: Record<string, string> = { "انفال": "8", "احزاب": "33", "محمد": "47", "فتح": "48", "حجرات": "49", "حشر": "59", "ممتحنه": "60", "صف": "61", "جمعه": "62", "منافقون": "63" };
 const en = (s: string) => s.replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
@@ -46,4 +47,20 @@ export function tadabburFor(range: string): TadabburInfo | null {
   const s = (notesData.surahs as Record<string, SurahNotes>)[r.surah]; if (!s) return null;
   return { author: notesData.author, series: notesData.series, url: s.url, note: s.note,
     summaries: s.ranges.filter(x => x.from <= r.to && x.to >= r.from).map(x => ({ summary: x.summary, url: x.url || s.url })) };
+}
+
+/** Per-verse recitation (Mishary Alafasy) from EveryAyah's static CDN, no key: https://everyayah.com */
+export type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
+export function audioFor(range: string): AudioInfo | null {
+  const b = resolveRange(range), r = parseRange(range); if (!b || !r) return null;
+  const p3 = (n: number | string) => String(n).padStart(3, "0");
+  return { reciter: "مشاری العفاسی", source: "https://everyayah.com", verses: b.verses.map(v => ({ n: v.n, url: `https://everyayah.com/data/Alafasy_128kbps/${p3(r.surah)}${p3(v.n)}.mp3` })) };
+}
+/** Verbatim Bahrampour verse translation (Tanzil edition fa.bahrampour, unmodified, attributed). Only the plan's surahs are bundled. */
+export type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
+export function translationFor(range: string): TranslationInfo | null {
+  const b = resolveRange(range), r = parseRange(range); if (!b || !r) return null;
+  const list = (bahrampour as Record<string, string[]>)[r.surah]; if (!list) return null;
+  return { translator: "ترجمهٔ استاد ابوالفضل بهرام‌پور", source: "Tanzil.net", sourceUrl: `https://tanzil.net/#trans/fa.bahrampour/${r.surah}:${r.from}`, link: quranComUrl(range),
+    verses: b.verses.map(v => ({ n: v.n, text: list[v.n - 1] })) };
 }

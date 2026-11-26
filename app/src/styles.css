@@ -312,4 +312,5 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .m-plan .verse-text{font-family:"Amiri","Scheherazade New","Noto Naskh Arabic",serif;font-size:17px;line-height:2.1;color:#26362e;margin:4px 0 8px;background:#f8f4e8;border-radius:12px;padding:10px 12px}
 .m-plan .tadabbur-notes{font-size:13px;line-height:1.9;color:#44564c;margin:4px 0 6px}.m-plan .tadabbur-notes p{margin:2px 0}.m-plan a.range-link{text-decoration:none}
 
+.m-plan .verse-audio{margin:6px 0}.m-plan .va-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}.m-plan .va-btn{min-width:56px;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid #b9c7bd;background:#fff;font:inherit;font-size:15px;color:#26362e;cursor:pointer;touch-action:manipulation}.m-plan .va-btn.on{background:#2f6b4f;color:#fff;border-color:#2f6b4f}.m-plan .verse-audio small{display:block;color:#44564c}
 .today-card .m-day{flex-wrap:wrap}.today-card .m-day-wide{flex:0 0 100%;width:100%;min-width:0}.today-card .m-day-wide .verse-text{width:100%;box-sizing:border-box;margin:4px 0 6px;padding:10px 14px}

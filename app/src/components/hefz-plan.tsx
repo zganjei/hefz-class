@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
@@ -13,9 +13,34 @@ async function call(path: string, body?: unknown, method = "GET") {
 const pageLabel = (w: { mushaf_page: number; mushaf_page2: number | null }) => `صفحهٔ ${fa(w.mushaf_page)}${w.mushaf_page2 ? " و " + fa(w.mushaf_page2) : ""} قرآن`;
 
 type Tadabbur = { author: string; series: string; url: string; note?: string; summaries: { summary: string; url: string }[] };
-type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; links?: (string | null)[]; tadabbur?: (Tadabbur | null)[] };
+type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; links?: (string | null)[]; tadabbur?: (Tadabbur | null)[]; audio?: (AudioInfo | null)[]; translation?: (TranslationInfo | null)[] };
+type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
+type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
 type Today = { week: { week_number: number; title: string } | null; day: { index: number; name: string; jdate: string; kind: string } | null; items: TodayItem[] };
 type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
+
+function VerseAudio({ info }: { info: AudioInfo }) {
+  const [playing, setPlaying] = useState<number | null>(null), [err, setErr] = useState(""), ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => () => { ref.current?.pause(); }, []);
+  const toggle = (v: { n: number; url: string }) => {
+    setErr("");
+    if (playing === v.n) { ref.current?.pause(); setPlaying(null); return; }
+    ref.current?.pause();
+    const a = new Audio(v.url); ref.current = a;
+    a.onended = () => setPlaying(p => p === v.n ? null : p);
+    a.onerror = () => { setPlaying(p => p === v.n ? null : p); setErr(`پخش آیهٔ ${fa(v.n)} ممکن نشد؛ اتصال اینترنت را بررسی کنید و دوباره امتحان کنید.`); };
+    setPlaying(v.n);
+    a.play().catch(() => { setPlaying(p => p === v.n ? null : p); setErr(`پخش آیهٔ ${fa(v.n)} ممکن نشد؛ دوباره امتحان کنید.`); });
+  };
+  return <div className="verse-audio">
+    <div className="va-row" role="group" aria-label="شنیدن آیه‌ها">
+      {info.verses.map(v => <button key={v.n} type="button" className={"va-btn" + (playing === v.n ? " on" : "")} aria-pressed={playing === v.n}
+        aria-label={playing === v.n ? `توقف آیهٔ ${fa(v.n)}` : `پخش آیهٔ ${fa(v.n)}`} onClick={() => toggle(v)}>{playing === v.n ? "■" : "▶"} {fa(v.n)}</button>)}
+    </div>
+    {err && <p className="error-msg" role="alert">{err}</p>}
+    <small>تلاوت {info.reciter} · <a href={info.source} target="_blank" rel="noopener noreferrer">everyayah.com ↗</a></small>
+  </div>;
+}
 
 function TodayChecklist() {
   const [data, setData] = useState<Today | null>(null), [msg, setMsg] = useState(""), [open, setOpen] = useState<string | null>(null), [cache, setCache] = useState<Record<string, VerseBlock | null>>({});
@@ -54,6 +79,14 @@ function TodayChecklist() {
               {it.tadabbur[ri]!.note && <p>{it.tadabbur[ri]!.note}</p>}
               <small>{it.tadabbur[ri]!.series} — {it.tadabbur[ri]!.author} · <a href={it.tadabbur[ri]!.url} target="_blank" rel="noopener noreferrer">صفحهٔ سوره در alisaboohi.com ↗</a></small>
             </div>}
+            {it.audio?.[ri] && <VerseAudio info={it.audio[ri]!} />}
+            {it.key === "translate" && (it.translation?.[ri]
+              ? <div className="tadabbur-notes">
+                {it.translation[ri]!.verses.map(v => <p key={v.n}>﴿{fa(v.n)}﴾ {v.text}</p>)}
+                <small>{it.translation[ri]!.translator} · <a href={it.translation[ri]!.sourceUrl} target="_blank" rel="noopener noreferrer">منبع: {it.translation[ri]!.source} ↗</a>{it.translation[ri]!.link && <> · <a href={it.translation[ri]!.link!} target="_blank" rel="noopener noreferrer">quran.com ↗</a></>}</small>
+                <small> (ترجمهٔ کامل آیات؛ فهرست لغات کلیدی از منبع معتبر در دسترس نبود.)</small>
+              </div>
+              : <p className="empty-state">ترجمهٔ این محدوده موجود نیست.</p>)}
             {open === r && (cache[r] === undefined ? <p className="empty-state">در حال بارگذاری…</p> : cache[r] ? <p className="verse-text" dir="rtl" lang="ar">{cache[r]!.verses.map(v => <span key={v.n}>{v.text} ﴿{fa(v.n)}﴾ </span>)}</p> : <p className="error-msg">متن این محدوده پیدا نشد.</p>)}
           </div>)}</div>
       </div>)}

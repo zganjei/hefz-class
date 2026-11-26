@@ -3,7 +3,7 @@ import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
 import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
-import { resolveRange, quranComUrl, tadabburFor } from "../../lib/quran.server";
+import { resolveRange, quranComUrl, tadabburFor, audioFor, translationFor } from "../../lib/quran.server";
 
 const TRACK = "online";   // an offline track will reuse hefz_daily_ticks.track later
 
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    const done = new Set(ticks.map(t => t.item)); if (weekly) done.add("memorize");
    return Response.json({ track: TRACK, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], jdate: jalaliLabel(addDays(week.start_date, idx)), kind: day.kind },
     items: DAILY_ITEMS.map(key => { const ranges = itemRanges(key, day); return { key, label: ITEM_LABELS[key], ranges, done: done.has(key),
-     ...(key === "memorize" ? { links: ranges.map(quranComUrl) } : {}), ...(key === "tadabbur" ? { tadabbur: ranges.map(tadabburFor) } : {}) }; }) });
+     ...(key === "memorize" ? { links: ranges.map(quranComUrl) } : {}), ...(key === "listen" ? { audio: ranges.map(audioFor) } : {}), ...(key === "translate" ? { translation: ranges.map(translationFor) } : {}), ...(key === "tadabbur" ? { tadabbur: ranges.map(tadabburFor) } : {}) }; }) });
   }
 
   if (classId) {   // teacher / admin report for one class
