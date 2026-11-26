@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
-import { expandWeek, stockholmToday, type PlanDay } from "../../lib/plan.server";
+import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
+import { resolveRange } from "../../lib/quran.server";
+
+const TRACK = "online";   // an offline track will reuse hefz_daily_ticks.track later
 
 type WeekRow = { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; start_date: string | null; days: PlanDay[] };
 const WEEK_SQL = "SELECT week_number,title,mushaf_page,mushaf_page2,start_date::text AS start_date,days FROM hefz_plan_weeks";
@@ -16,8 +19,23 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
   const url = new URL(request.url); const today = stockholmToday();
   const all = (await DB.prepare(`${WEEK_SQL} ORDER BY week_number`).all<WeekRow>()).results || [];
   const classId = url.searchParams.get("classId");
+
+  const rangesParam = url.searchParams.get("verses");   // verse text for tapped ranges, "|"-separated
+  if (rangesParam) return Response.json({ blocks: rangesParam.split("|").slice(0, 12).map(r => resolveRange(r)).filter(Boolean) });
   const dated = all.filter(w => w.start_date && w.start_date <= today);
   const currentWeek = dated.length ? dated[dated.length - 1].week_number : null;
+
+  if (url.searchParams.get("today")) {   // learner's checklist for today (online track)
+   const week = all.find(w => w.week_number === currentWeek);
+   const idx = week?.start_date ? dayIndexOf(week.start_date, today) : null;
+   if (!week || !week.start_date || idx === null) return Response.json({ track: TRACK, today, week: null, day: null, items: [] });
+   const day = week.days[idx];
+   const ticks = (await DB.prepare("SELECT item FROM hefz_daily_ticks WHERE user_id=? AND track=? AND week_number=? AND day_index=?").bind(user.id, TRACK, week.week_number, idx).all<{ item: string }>()).results || [];
+   const weekly = await DB.prepare("SELECT 1 AS x FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, week.week_number, idx).first<{ x: number }>();
+   const done = new Set(ticks.map(t => t.item)); if (weekly) done.add("memorize");
+   return Response.json({ track: TRACK, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], jdate: jalaliLabel(addDays(week.start_date, idx)), kind: day.kind },
+    items: DAILY_ITEMS.map(key => ({ key, label: ITEM_LABELS[key], ranges: itemRanges(key, day), done: done.has(key) })) });
+  }
 
   if (classId) {   // teacher / admin report for one class
    if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
@@ -47,6 +65,21 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (body && body.item !== undefined) {   // per-item tick on a day
+   const item = String(body.item) as DailyItem, wn = Number(body.weekNumber), di = Number(body.dayIndex), on = body.done !== false;
+   if (!DAILY_ITEMS.includes(item) || !Number.isInteger(wn) || !Number.isInteger(di) || di < 0 || di > 6) return jsonError("درخواست نامعتبر است.");
+   const wk = await DB.prepare(`${WEEK_SQL} WHERE week_number=?`).bind(wn).first<WeekRow>();
+   const now = stockholmToday();
+   if (!wk || !isOpen(wk, now)) return jsonError("این هفته هنوز باز نشده است.", 403);
+   if (wk.start_date && addDays(wk.start_date, di) > now) return jsonError("روز آینده را نمی‌توان تیک زد.", 403);
+   if (on) await DB.prepare("INSERT INTO hefz_daily_ticks(user_id,track,week_number,day_index,item) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING").bind(user.id, TRACK, wn, di, item).run();
+   else await DB.prepare("DELETE FROM hefz_daily_ticks WHERE user_id=? AND track=? AND week_number=? AND day_index=? AND item=?").bind(user.id, TRACK, wn, di, item).run();
+   if (item === "memorize" && wk.days[di]?.kind === "new") {   // keep the weekly tick consistent: حفظ done == day done
+    if (on) await DB.prepare("INSERT INTO hefz_plan_progress(user_id,week_number,day_index) VALUES(?,?,?) ON CONFLICT DO NOTHING").bind(user.id, wn, di).run();
+    else await DB.prepare("DELETE FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, wn, di).run();
+   }
+   return Response.json({ ok: true, weekNumber: wn, dayIndex: di, item, done: on });
+  }
   const weekNumber = Number(body?.weekNumber), dayIndex = Number(body?.dayIndex), done = body?.done !== false;
   if (!Number.isInteger(weekNumber) || !Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) return jsonError("درخواست نامعتبر است.");
   const week = await DB.prepare(`${WEEK_SQL} WHERE week_number=?`).bind(weekNumber).first<WeekRow>();
