@@ -12,6 +12,46 @@ async function call(path: string, body?: unknown, method = "GET") {
 }
 const pageLabel = (w: { mushaf_page: number; mushaf_page2: number | null }) => `صفحهٔ ${fa(w.mushaf_page)}${w.mushaf_page2 ? " و " + fa(w.mushaf_page2) : ""} قرآن`;
 
+type TodayItem = { key: string; label: string; ranges: string[]; done: boolean };
+type Today = { week: { week_number: number; title: string } | null; day: { index: number; name: string; jdate: string; kind: string } | null; items: TodayItem[] };
+type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
+
+function TodayChecklist() {
+  const [data, setData] = useState<Today | null>(null), [msg, setMsg] = useState(""), [open, setOpen] = useState<string | null>(null), [cache, setCache] = useState<Record<string, VerseBlock | null>>({});
+  const load = useCallback(async () => { try { setData(await call("/api/plan?today=1")); setMsg(""); } catch (e: any) { setMsg(e.message); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  const tick = async (it: TodayItem) => {
+    if (!data?.week || !data.day) return;
+    const next = !it.done;
+    setData(d => d && { ...d, items: d.items.map(x => x.key === it.key ? { ...x, done: next } : x) });
+    try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
+  };
+  const show = async (range: string) => {
+    setOpen(o => o === range ? null : range);
+    if (range in cache) return;
+    try { const d = await call(`/api/plan?verses=${encodeURIComponent(range)}`); setCache(c => ({ ...c, [range]: d.blocks[0] ?? null })); } catch { setCache(c => ({ ...c, [range]: null })); }
+  };
+  if (!data) return msg ? <p className="error-msg">{msg}</p> : null;
+  if (!data.day || !data.week) return null;
+  const doneN = data.items.filter(i => i.done).length;
+  return <article className="plan-week current today-card">
+    <div className="plan-week-head static"><div><b>برنامهٔ امروز · {data.day.name} {data.day.jdate}</b><small>هفتهٔ {fa(data.week.week_number)} · {data.week.title} · {fa(doneN)} از {fa(data.items.length)}</small></div></div>
+    {msg && <p className="error-msg">{msg}</p>}
+    <div className="m-days">
+      {data.items.map(it => <div key={it.key} className={"m-day" + (it.done ? " done" : "")}>
+        <label className="m-check"><input type="checkbox" checked={it.done} onChange={() => void tick(it)} aria-label={it.label} /><span /></label>
+        <div className="m-day-body">
+          <div className="m-day-top"><b>{it.label}</b></div>
+          {it.ranges.length ? it.ranges.map(r => <div key={r}>
+            <button type="button" className="range-link" onClick={() => void show(r)}>{r}</button>
+            {open === r && (cache[r] === undefined ? <p className="empty-state">در حال بارگذاری…</p> : cache[r] ? <p className="verse-text" dir="rtl" lang="ar">{cache[r]!.verses.map(v => <span key={v.n}>{v.text} ﴿{fa(v.n)}﴾ </span>)}</p> : <p className="error-msg">متن این محدوده پیدا نشد.</p>)}
+          </div>) : <div className="m-new">—</div>}
+        </div>
+      </div>)}
+    </div>
+  </article>;
+}
+
 function LearnerPlan() {
   const [showAll, setShowAll] = useState(false), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
@@ -27,6 +67,7 @@ function LearnerPlan() {
   const hidden = weeks.filter(w => w.open && w.week_number < curN - 3).length;
   if (loading) return <p className="empty-state">در حال بارگذاری…</p>;
   return <section className="plan-wrap">
+    <TodayChecklist />
     {msg && <p className="error-msg">{msg}</p>}
     {!weeks.length && <p className="empty-state">برنامه‌ای ثبت نشده است.</p>}
     {[...visible].reverse().map(w => {

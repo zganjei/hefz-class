@@ -25,6 +25,20 @@ export function jalaliLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number); const j = g2j(y, m, d);
   return `${digits(j.jd)} ${MONTHS[j.jm - 1]}`;
 }
+export const DAILY_ITEMS = ["listen", "memorize", "translate", "tadabbur", "review10", "reviewAll"] as const;
+export type DailyItem = (typeof DAILY_ITEMS)[number];
+export const ITEM_LABELS: Record<DailyItem, string> = { listen: "استماع", memorize: "حفظ", translate: "ترجمه", tadabbur: "تدبر", review10: "مرور ده درس", reviewAll: "مرور سبد کل" };
+/** Day ranges per item: listen/memorize/translate/tadabbur use the day's `new`; review10 = `review`; reviewAll = `basket`. */
+export function itemRanges(item: DailyItem, d: { new: string | null; review: string[]; basket: string[] }): string[] {
+  if (item === "review10") return d.review;
+  if (item === "reviewAll") return d.basket;
+  return d.new ? [d.new] : [];
+}
+/** Day index (0..6) of `today` within the week starting `start`, or null if outside. */
+export function dayIndexOf(start: string, today: string): number | null {
+  const n = Math.round((Date.parse(today + "T12:00:00Z") - Date.parse(start + "T12:00:00Z")) / 86400000);
+  return n >= 0 && n <= 6 ? n : null;
+}
 export type PlanDay = { kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[] };
 export function expandWeek(w: { start_date: string | null; days: PlanDay[] }, today: string, done: Set<number>) {
   return w.days.map((d, i) => {
