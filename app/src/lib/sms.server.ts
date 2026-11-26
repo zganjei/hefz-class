@@ -16,7 +16,23 @@ async function sendMelipayamak(phone: string, code: string): Promise<{ ok: boole
   } catch { return { ok: false, error: "ارتباط با سرویس پیامک برقرار نشد." }; }
 }
 
+// sms.ir env: SMSIR_API_KEY (secret), SMSIR_TEMPLATE_ID (approved verify template id), SMSIR_PARAM (template variable name, default "Code").
+async function sendSmsIr(phone: string, code: string): Promise<{ ok: boolean; error?: string }> {
+  const mobile = "0" + phone.replace(/\D/g, "").slice(-10);
+  try {
+    const r = await fetch("https://api.sms.ir/v1/send/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "x-api-key": process.env.SMSIR_API_KEY! },
+      body: JSON.stringify({ mobile, templateId: Number(process.env.SMSIR_TEMPLATE_ID), parameters: [{ name: process.env.SMSIR_PARAM || "Code", value: code }] }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const j = await r.json().catch(() => null) as { status?: number } | null;
+    return r.ok && j && j.status === 1 ? { ok: true } : { ok: false, error: "ارسال پیامک ناموفق بود." };
+  } catch { return { ok: false, error: "ارتباط با سرویس پیامک برقرار نشد." }; }
+}
+
 export async function sendOtpSms(phone: string, code: string): Promise<{ ok: boolean; error?: string }> {
+  if (process.env.SMSIR_API_KEY && process.env.SMSIR_TEMPLATE_ID) return sendSmsIr(phone, code);
   if (process.env.MELIPAYAMAK_USERNAME && process.env.MELIPAYAMAK_PASSWORD && process.env.MELIPAYAMAK_BODY_ID) return sendMelipayamak(phone, code);
   const key = process.env.KAVENEGAR_API_KEY;
   if (!key) {
