@@ -1,4 +1,4 @@
-import { displayClassName, searchNorm, searchTokens } from "./teacher-name";
+import { displayClassName, displayTeacherName, searchNorm, searchTokens } from "./teacher-name";
 
 type P = { full_name?: string; class_name?: string; teacher_name?: string; code?: string; phone?: string };
 /** Only the fields a person sees in the registry list are searched (name, class, teacher, code, phone digits). Never hidden fields (notes, Excel extras). */
@@ -20,7 +20,7 @@ export function personMatch(p: P, query: string): SearchMatch | null {
   for (const x of t) {
     if (name.includes(x)) { nameHits++; continue; }
     const f = fields.find(f => f.v.includes(x)); if (!f) return null;
-    const r = f.digits ? f.label : f.label + ": " + (f.label === "کلاس" ? displayClassName(f.raw.trim()) : f.raw.trim());
+    const r = f.digits ? f.label : f.label + ": " + (f.label === "کلاس" ? displayClassName(f.raw.trim()) : f.label === "استاد" ? displayTeacherName(f.raw.trim()) : f.raw.trim());
     if (!reasons.includes(r)) reasons.push(r);
   }
   return { group: nameHits > 0 ? "name" : "other", nameHits, reasons: nameHits > 0 && nameHits === t.length ? [] : reasons };

@@ -4,7 +4,7 @@ import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
-import { searchNorm } from "../lib/teacher-name";
+import { searchNorm, displayTeacherName } from "../lib/teacher-name";
 import { hasRole } from "../lib/roles";
 import { TeacherPlan, LearnerPlan, ClassPosition } from "./hefz-plan";
 
@@ -75,7 +75,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
         <h2>{card.name}</h2>
         <LevelStepChips level={card.level} step={card.step} />
-        <p className="plan-hint">{[dayTimeText(card), card.teacher && isAdmin ? "استاد: " + card.teacher : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
+        <p className="plan-hint">{[dayTimeText(card), card.teacher && isAdmin ? "استاد: " + displayTeacherName(card.teacher) : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
       </header>}
       <div className="m-seg" role="tablist" aria-label="بخش‌های کلاس">{TABS.map(([k, t]) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{t}</button>)}</div>
       {sub === "info" && <ClassSheet mode="info" id={open} user={user} onLoaded={() => void refresh()} />}
@@ -100,7 +100,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
       <b>{c.name}</b>
       <LevelStepChips level={c.level} step={c.step} />
-      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), dayTimeText(c), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
+      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), dayTimeText(c), c.teacher && isAdmin ? "استاد: " + displayTeacherName(c.teacher) : ""].filter(Boolean).join(" · ")}</span>
     </div>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
     {cards && !!cards.length && !shown.length && <p className="empty-state">کلاسی با این سطح و گام نیست.</p>}

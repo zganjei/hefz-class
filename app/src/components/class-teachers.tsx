@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Notice } from "./notice";
+import { displayTeacherName } from "../lib/teacher-name";
 
 async function call(method: string, path: string, body?: unknown) {
   const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -27,10 +28,10 @@ export function ClassTeachers({ refreshKey = 0 }: { refreshKey?: number }) {
       <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
       {classId && <>
         <h4>اساتید فعلی</h4>
-        {current.map(t => <div className="adm-row" key={t.id}><b>{t.display_name}</b>{t.is_primary ? <span>استاد اصلی</span> : <button className="adm-btn danger sm" disabled={busy} onClick={() => void run(async () => { await call("DELETE", "/api/class-teachers", { classId, userId: t.id }); await loadCurrent(classId); setMsg("استاد از کلاس حذف شد ✅"); })}>حذف</button>}</div>)}
+        {current.map(t => <div className="adm-row" key={t.id}><b>{displayTeacherName(t.display_name)}</b>{t.is_primary ? <span>استاد اصلی</span> : <button className="adm-btn danger sm" disabled={busy} onClick={() => void run(async () => { await call("DELETE", "/api/class-teachers", { classId, userId: t.id }); await loadCurrent(classId); setMsg("استاد از کلاس حذف شد ✅"); })}>حذف</button>}</div>)}
         {!current.length && <p className="empty-state">استادی ثبت نشده است.</p>}
       </>}
-      <label>استاد<select value={teacherId} onChange={e => setTeacherId(e.target.value)}><option value="">انتخاب استاد</option>{teachers.map(t => <option value={t.id} key={t.id}>{t.display_name}</option>)}</select></label>
+      <label>استاد<select value={teacherId} onChange={e => setTeacherId(e.target.value)}><option value="">انتخاب استاد</option>{teachers.map(t => <option value={t.id} key={t.id}>{displayTeacherName(t.display_name)}</option>)}</select></label>
       <button className="adm-btn" disabled={busy || !classId || !teacherId} onClick={() => void run(async () => { await call("POST", "/api/class-teachers", { classId, userId: teacherId }); await loadCurrent(classId); setTeacherId(""); setMsg("استاد به کلاس اضافه شد ✅"); })}>افزودن استاد به کلاس</button>
     </div>
     <Notice msg={msg} />
