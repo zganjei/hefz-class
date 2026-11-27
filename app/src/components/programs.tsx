@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Notice } from "./notice";
+import { displayClassName, displayClassNames } from "../lib/teacher-name";
 import { Confirm } from "./admin-ui";
 import * as XLSX from "xlsx";
 import { parseProgramRows, suggestProgramName, type ParseResult } from "../lib/program-parse";
@@ -46,7 +47,7 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
     let r: any;
     try { r = await call("POST", { action: "assign", classId: c.id, programId: p.program, startDate: p.start || undefined }); }
     catch (e: any) { if (e.status === 404) await load(); throw e; }   // stale list (class deleted elsewhere): refresh it, then show the message
-    setOk(r.programId ? `«${r.programName}» برای کلاس «${r.className}» ثبت شد؛ هفتهٔ اول از ${r.startLabel} شروع می‌شود ✅` : `کلاس «${c.name}» دوباره روی برنامهٔ عمومی است ✅`);
+    setOk(r.programId ? `«${r.programName}» برای کلاس «${displayClassName(r.className)}» ثبت شد؛ هفتهٔ اول از ${r.startLabel} شروع می‌شود ✅` : `کلاس «${displayClassName(c.name)}» دوباره روی برنامهٔ عمومی است ✅`);
     setPick(x => { const { [c.id]: _, ...rest } = x; return rest; }); await load();
   });
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -73,6 +74,7 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
   });
   const first = prev?.weeks[0], last = prev?.weeks[prev.weeks.length - 1];
 
+  const clsLabels = displayClassNames(classes.map(c => c.name));
   return <div className="adm-stack">
     <p className="adm-hint">هر برنامه یک‌بار تعریف می‌شود و هر کلاس فقط یک برنامه دارد؛ قرآن‌آموزان برنامهٔ روزانه را و استاد جایگاه فعلی کلاس را می‌بیند. کلاسی که برنامه ندارد از برنامهٔ عمومی پیروی می‌کند.</p>
     <Notice msg={msg || ok} />
@@ -107,7 +109,7 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
             <span>آخرین حفظ: {info.lastNew ?? "—"}</span>
             <span>هفتهٔ اول: {info.firstTitle} · هفتهٔ آخر: {info.lastTitle}</span>
           </>}
-          <span>کلاس‌های متصل: {info.classes.length ? info.classes.join("، ") : "هیچ کلاسی"}</span>
+          <span>کلاس‌های متصل: {info.classes.length ? info.classes.map(displayClassName).join("، ") : "هیچ کلاسی"}</span>
           {info.created && <span>تاریخ ساخت: {info.created}</span>}
         </>}
       </div>}
@@ -118,8 +120,8 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
     <div className="adm-block">
     <h3>برنامهٔ هر کلاس</h3>
     {!classes.length && <p className="empty-state">کلاسی وجود ندارد.</p>}
-    {classes.map(c => { const p = pick[c.id] ?? { program: c.program_id || "", start: "" }; const changed = p.program !== (c.program_id || "") || !!p.start; return <div className="adm-card" key={c.id}>
-      <b>{c.name}</b> <small>{fa(c.member_count)} عضو · {c.program_id ? `شروع هفتهٔ اول: ${c.start_label}` : "برنامهٔ عمومی"}</small>
+    {classes.map((c, i) => { const p = pick[c.id] ?? { program: c.program_id || "", start: "" }; const changed = p.program !== (c.program_id || "") || !!p.start; return <div className="adm-card" key={c.id}>
+      <b>{clsLabels[i]}</b> <small>{fa(c.member_count)} عضو · {c.program_id ? `شروع هفتهٔ اول: ${c.start_label}` : "برنامهٔ عمومی"}</small>
       <label>برنامه<select value={p.program} onChange={e => setPick(x => ({ ...x, [c.id]: { ...p, program: e.target.value } }))}><option value="">برنامهٔ عمومی (بدون برنامهٔ جدا)</option>{programs.filter(x => x.weeks > 0).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
       {p.program && <label>شروع هفتهٔ اول (به نزدیک‌ترین شنبهٔ قبل می‌رود)<input type="date" dir="ltr" value={p.start || ""} min="2020-01-01" placeholder={defaultStart} onChange={e => setPick(x => ({ ...x, [c.id]: { ...p, start: e.target.value } }))} /></label>}
       <button type="button" className="adm-btn" disabled={busy || !changed} onClick={() => void assign(c)}>ثبت برنامهٔ کلاس</button>

@@ -4,7 +4,8 @@ import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
-import { searchNorm, displayTeacherName } from "../lib/teacher-name";
+import { searchNorm, displayTeacherName, displayClassName, displayClassNames } from "../lib/teacher-name";
+
 import { hasRole } from "../lib/roles";
 import { TeacherPlan, LearnerPlan, ClassPosition } from "./hefz-plan";
 
@@ -68,12 +69,13 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
   const seg = isAdmin && !hasRole(user, "memorizer") && !open && <div className="m-seg"><button className={!mine ? "on" : ""} onClick={() => setMine(false)}>کلاس‌ها</button><button className={mine ? "on" : ""} onClick={() => setMine(true)}>برنامه‌ی من</button></div>;
   if (isAdmin && !hasRole(user, "memorizer") && mine && !open) return <section className="m-plan">{seg}<LearnerPlan /></section>;
   const card = cards?.find(c => c.id === open);
+  const labels = new Map<string, string>(); if (cards) displayClassNames(cards.map(c => c.name)).forEach((l, i) => labels.set(cards[i].id, l));   // display only; disambiguates names that look the same once «کلاس/گروه» is dropped
   if (open) {
     const only = !!cards && cards.length === 1 && !isTchr;
     return <section className="panel">
       {!only && <button className="secondary-action" onClick={() => { goBack(["classes"]); void run(load); }}>← کلاس‌ها</button>}
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
-        <h2>{card.name}</h2>
+        <h2>{labels.get(card.id) ?? displayClassName(card.name)}</h2>
         <LevelStepChips level={card.level} step={card.step} />
         <p className="plan-hint">{[dayTimeText(card), card.teacher && isAdmin ? "استاد: " + displayTeacherName(card.teacher) : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
       </header>}
@@ -98,7 +100,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
     {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
-      <b>{c.name}</b>
+      <b>{labels.get(c.id) ?? displayClassName(c.name)}</b>
       <LevelStepChips level={c.level} step={c.step} />
       <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), dayTimeText(c), c.teacher && isAdmin ? "استاد: " + displayTeacherName(c.teacher) : ""].filter(Boolean).join(" · ")}</span>
     </div>)}
@@ -227,7 +229,7 @@ function Learner({ say, l, left, className, classPos, classId, open, toggle, run
         <h4>حذف از کلاس</h4>
         <p className="plan-hint">اگر این قرآن‌آموز هرگز در این کلاس نبوده (یا اشتباهی اضافه شده)، از فهرست همین کلاس برداشته می‌شود. حساب، نمره‌ها و سابقه‌اش پاک نمی‌شود؛ برای کسی که کلاس را ترک کرده، «ترک کرد» را بزنید.</p>
         {!rm ? <button className="secondary-action" disabled={busy} onClick={() => setRm(true)}>حذف از کلاس…</button>
-          : <><p className="plan-hint">«{l.name}» از کلاس «{className}» برداشته شود؟ حساب و سابقه‌ی او پاک نمی‌شود.</p>
+          : <><p className="plan-hint">«{l.name}» از کلاس «{displayClassName(className)}» برداشته شود؟ حساب و سابقه‌ی او پاک نمی‌شود.</p>
             <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { const d = await call("POST", "/api/class-sheet", { action: "remove-member", classId, person: l.key }); setRm(false); await reload(); say(`«${d.removed}» از کلاس «${d.className}» برداشته شد ✅`); })}>بله، از کلاس برداشته شود</button>
             <button className="secondary-action" onClick={() => setRm(false)}>انصراف</button></>}
       </div>

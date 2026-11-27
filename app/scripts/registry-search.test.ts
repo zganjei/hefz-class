@@ -12,7 +12,7 @@ test("hidden fields are not searched", () => { expect(personMatches({ full_name:
 test("empty query matches all", () => { expect(personMatches(other, "  ")).toBe(true); });
 
 import { personMatch, rankPeople } from "../src/lib/registry-search";
-import { displayClassName } from "../src/lib/teacher-name";
+import { displayClassName, displayClassNames } from "../src/lib/teacher-name";
 const byTeacher = { full_name: "الناز تشکری", class_name: "کلاس شهید آرمان علی وردی", teacher_name: "زهراسادات رضایی" };
 test("name match ranks as name group; teacher-only match is the 'other' group with a reason", () => {
   expect(personMatch(zahra, "زهرا")?.group).toBe("name");
@@ -28,7 +28,11 @@ test("class-only match shows class reason without leading «کلاس»", () => {
 test("displayClassName strips only a leading «کلاس »", () => {
   expect(displayClassName("کلاس شهید آرمان علی وردی")).toBe("شهید آرمان علی وردی");
   expect(displayClassName("كلاس‌ شهید")).toBe("شهید");
-  expect(displayClassName("گروه شهید موسوی")).toBe("گروه شهید موسوی");
+  expect(displayClassName("گروه شهید موسوی")).toBe("شهید موسوی");
+  expect(displayClassName("گروه‌ شهید موسوی")).toBe("شهید موسوی");
+  expect(displayClassName("کلاس گروه شهید موسوی")).toBe("شهید موسوی");
+  expect(displayClassName("شهید گروه دوم")).toBe("شهید گروه دوم");
+  expect(displayClassName("گروه")).toBe("گروه");
   expect(displayClassName("شهید کلاس دوم")).toBe("شهید کلاس دوم");
   expect(displayClassName("کلاس")).toBe("کلاس");
 });
@@ -50,4 +54,14 @@ test("displayTeacherName strips leading titles only", () => {
   expect(displayTeacherName("سرکار خانم")).toBe("سرکار خانم");
   expect(displayTeacherName(undefined)).toBe("");
   expect(personMatch({ full_name: "الناز", teacher_name: "سرکار خانم احمدی" }, "احمدی")?.reasons).toEqual(["استاد: احمدی"]);
+});
+test("«گروه» is display-only: searching with or without it still matches", () => {
+  const g = { full_name: "الناز", class_name: "گروه شهید موسوی" };
+  expect(personMatches(g, "گروه شهید موسوی")).toBe(true); expect(personMatches(g, "شهید موسوی")).toBe(true);
+  expect(personMatch(g, "موسوی")?.reasons).toEqual(["کلاس: شهید موسوی"]);
+});
+test("displayClassNames disambiguates collapsed duplicates", () => {
+  expect(displayClassNames(["کلاس شهید علی", "گروه شهید علی", "شهید علی"])).toEqual(["شهید علی", "گروه شهید علی", "شهید علی (۲)"]);
+  expect(displayClassNames(["شهید علی", "کلاس شهید علی"])).toEqual(["شهید علی", "کلاس شهید علی"]);
+  expect(displayClassNames(["الف", "ب"])).toEqual(["الف", "ب"]);
 });

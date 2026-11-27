@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { navTo } from "../lib/nav";
-import { displayClassName, displayTeacherName } from "../lib/teacher-name";
+import { displayClassName, displayClassNames, displayTeacherName } from "../lib/teacher-name";
 
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 type Res = { classes: any[]; learners: any[]; teachers: any[]; viaLearners?: any[] };
@@ -45,7 +45,7 @@ export function AdminSearch({ onClose }: { onClose: () => void }) {
       {q && busy && !res && <p className="empty-state">در حال جستجو…</p>}
       {q && none && !busy && <p className="empty-state">نتیجه‌ای پیدا نشد</p>}
       {!!res?.classes.length && <section className="adm-block"><h3>کلاس‌ها</h3>
-        {res.classes.map(c => <button type="button" key={c.id} className="adm-hit" onClick={() => go(c.id, "info")}><b>{displayClassName(c.name)}</b><small>{[lsText(c.level, c.step), c.teachers.length ? "استاد: " + c.teachers.map(displayTeacherName).join("، ") : "", fa(c.learners) + " قرآن‌آموز فعال"].filter(Boolean).join(" · ")}</small></button>)}</section>}
+        {displayClassNames(res.classes.map(c => c.name)).map((lbl, i) => { const c = res.classes[i]; return <button type="button" key={c.id} className="adm-hit" onClick={() => go(c.id, "info")}><b>{lbl}</b><small>{[lsText(c.level, c.step), c.teachers.length ? "استاد: " + c.teachers.map(displayTeacherName).join("، ") : "", fa(c.learners) + " قرآن‌آموز فعال"].filter(Boolean).join(" · ")}</small></button>; })}</section>}
       {!!res?.learners.length && <section className="adm-block"><h3>قرآن‌آموزان</h3>
         {res.learners.map((l, i) => <button type="button" key={i} className="adm-hit" onClick={() => go(l.classId, "people", l.name)}><b>{l.name}</b><small>{["کلاس: " + displayClassName(l.className), l.teachers.length ? "استاد: " + l.teachers.map(displayTeacherName).join("، ") : ""].filter(Boolean).join(" · ")}</small></button>)}</section>}
       {!!res?.viaLearners?.length && (() => { const v = res.viaLearners!, open = !res.learners.length || viaOpen; return <section className="adm-block adm-via"><button type="button" className="adm-via-hd" aria-expanded={open} onClick={() => setViaOpen(o => !o)}><span>مطابقت از طریق استاد یا کلاس</span><small>{fa(v.length)} مورد {res.learners.length ? (open ? "▴" : "▾") : ""}</small></button>
