@@ -103,7 +103,7 @@ function TodayChecklist() {
   </article>;
 }
 
-function LearnerPlan() {
+export function LearnerPlan() {
   const [showAll, setShowAll] = useState(false), [program, setProgram] = useState<{ id: string; name: string } | null>(null), [startsOn, setStartsOn] = useState<string | null>(null), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
     try { const d = await call("/api/plan"); setProgram(d.program ?? null); setStartsOn(d.startsOn ?? null); setWeeks(d.weeks); setOpenWeek(o => o ?? d.currentWeek ?? null); setMsg(""); } catch (e: any) { setMsg(e.message); } finally { setLoading(false); }
@@ -165,7 +165,7 @@ function ClassRoster({ classId }: { classId: string }) {
       {r.program
         ? <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : r.programEnded ? "برنامه به پایان رسیده است" : "هنوز شروع نشده است"}</p>
         : <p><i>جایگاه فعلی کلاس:</i> {r.positionNote || "ثبت نشده"} <small>(برنامه‌ای به این کلاس وصل نیست)</small></p>}
-      <p className="plan-hint">جایگاه واقعی کلاس را از «کلاس‌ها» ← کارت کلاس تنظیم کنید.</p>
+      <p className="plan-hint">جایگاه واقعی کلاس را از زبانهٔ «قرآن‌آموزان» ← «تنظیمات کلاس» تنظیم کنید.</p>
       <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
       <p><i>تعداد قرآن‌آموزان:</i> {fa(r.rows.length)}</p>
     </div>
@@ -183,16 +183,17 @@ function ClassRoster({ classId }: { classId: string }) {
   </article>;
 }
 
-function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
-  const [classId, setClassId] = useState(classes[0]?.id || ""), [week, setWeek] = useState<number | null>(null), [data, setData] = useState<Report | null>(null), [msg, setMsg] = useState("");
-  useEffect(() => { if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId]);
+/** Weekly progress per learner for a class. With `fixedClassId` (inside a class) the class picker is hidden. */
+export function TeacherPlan({ classes, fixedClassId }: { classes: { id: string; name: string }[]; fixedClassId?: string }) {
+  const [classId, setClassId] = useState(fixedClassId || classes[0]?.id || ""), [week, setWeek] = useState<number | null>(null), [data, setData] = useState<Report | null>(null), [msg, setMsg] = useState("");
+  useEffect(() => { if (fixedClassId) setClassId(fixedClassId); else if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId, fixedClassId]);
   useEffect(() => {
     if (!classId) return;
     call(`/api/plan?classId=${encodeURIComponent(classId)}${week ? "&week=" + week : ""}`).then(d => { setData(d); setMsg(""); }).catch(e => { setData(null); setMsg(e.message); });
   }, [classId, week]);
   return <section className="plan-wrap">
     <div className="plan-toolbar">
-      {classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+      {!fixedClassId && classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
       {data && <label>هفته<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}
