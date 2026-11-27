@@ -17,7 +17,7 @@ function AppCard({ a, busy, note, decide }: { a: any; busy: boolean; note?: Note
   </div>;
 }
 
-/** Admin «درخواست‌ها» tab: pending applications on top, everything else in one-at-a-time sections. */
+/** Admin «مدیریت» tab: pending applications on top, everything else in one-at-a-time sections. */
 export function AdminRequests({ applications, busy, decide, decisionNote, classRev, onCreated }: { applications: any[]; busy: boolean; decide: (id: string, d: "approve" | "reject") => void; decisionNote: Record<string, Note>; classRev: number; onCreated: () => void }) {
   const { open, toggle } = useOne<"programs" | "classes" | "accounts">();
   const [showDone, setShowDone] = useState(false);
@@ -27,7 +27,7 @@ export function AdminRequests({ applications, busy, decide, decisionNote, classR
   const pending = applications.filter(a => a.status === "pending").length;
   return <div className="adm">
     <section className="adm-sec open adm-top">
-      <div className="adm-head static"><span className="adm-title">نیازمند بررسی</span>{!!pending && <span className="adm-badge">{faN(pending)}</span>}</div>
+      <div className="adm-head static"><span className="adm-title">درخواست‌های جدید</span>{!!pending && <span className="adm-badge">{faN(pending)}</span>}</div>
       <div className="adm-body">
         {!todo.length && <p className="empty-state">درخواست جدیدی نیست.</p>}
         {todo.map(a => <AppCard key={a.id} a={a} busy={busy} note={decisionNote[a.id]} decide={decide} />)}
@@ -38,7 +38,7 @@ export function AdminRequests({ applications, busy, decide, decisionNote, classR
       </div>
     </section>
     <Acc title="برنامه‌های حفظ"open={open === "programs"} onToggle={() => toggle("programs")}><Programs refreshKey={classRev} /></Acc>
-    <Acc title="کلاس‌ها و استادها" open={open === "classes"} onToggle={() => toggle("classes")}><ClassTeachers refreshKey={classRev} /><RegistryClasses onCreated={onCreated} /></Acc>
+    <Acc title="کلاس‌ها و اساتید" open={open === "classes"} onToggle={() => toggle("classes")}><ClassTeachers refreshKey={classRev} /><RegistryClasses onCreated={onCreated} /></Acc>
     <Acc title="حساب‌ها" open={open === "accounts"} onToggle={() => toggle("accounts")}><StaffAccounts /></Acc>
   </div>;
 }
