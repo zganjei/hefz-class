@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Notice } from "./notice";
+import { LevelStepEditor } from "./level-step";
+import { lsLabel } from "../lib/level-step";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -33,6 +35,7 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards?.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => setOpen(c.id)}>
       <b>{c.name}{c.term ? " · " + c.term : ""}</b>
+      {lsLabel(c.level, c.step) && <span className="adm-badge" style={{ justifySelf: "start" }}>{lsLabel(c.level, c.step)}</span>}
       <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · استاد: " + c.teacher : ""}</span>
       {c.hasProgram
         ? <span>برنامه: {c.program}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده"}</span>
@@ -58,6 +61,8 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
     <button className="secondary-action" onClick={back}>← کلاس‌ها</button>
     <h2 style={{ marginTop: 12 }}>{d.name}</h2>
     <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال{d.hasProgram ? " · برنامه: " + d.program + (d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : d.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : " · برنامه‌ای به این کلاس وصل نیست"}</p>
+    {lsLabel(d.level, d.step) && <p><span className="adm-badge" style={{ display: "inline-grid" }}>{lsLabel(d.level, d.step)}</span></p>}
+    <LevelStepEditor level={d.level} step={d.step} busy={busy} onSave={(level, step) => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-level-step", classId: id, level, step }); await load(); setMsg("سطح و گام ذخیره شد ✅"); })} />
     <div className="report-form">
       <h3>برنامه‌ی کلاس</h3>
       {programs && !programs.length && <p className="plan-hint">هنوز برنامه‌ای تعریف نشده؛ مدیر باید آن را بسازد.</p>}

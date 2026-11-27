@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { teacherKey, isNoTeacher } from "../lib/teacher-name";
+import { normClassName } from "../lib/class-name";
+import { lsLabel } from "../lib/level-step";
+import { lsOf } from "./level-step";
 
 type Kind = "student" | "teacher" | "supporter";
 type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null; sources?: string[]; learners?: number; has_account?: boolean; derived?: boolean; readonly?: boolean };
 
 const KIND_FA: Record<Kind, string> = { student: "قرآن‌آموزان", teacher: "اساتید", supporter: "پشتیبان‌ها" };
 const MEMB_LABEL: Record<string, string> = { in_class: "در کلاس ✓", to_add: "آماده‌ی ثبت در کلاس", no_account: "هنوز وارد نشده", no_class: "کلاس نامشخص", removed: "از کلاس برداشته شد" };
-const LABELS: Record<string, string> = { full_name: "نام و نام خانوادگی", code: "کد", class_name: "کلاس", teacher_name: "استاد", class_day: "روز کلاس", class_time: "ساعت کلاس", level: "سطح / محدوده", education: "تحصیلات", hifz_amount: "میزان حفظ", tadabbur_amount: "میزان تدبر", phone: "شماره تماس", bale_number: "شماره بله", bale_id: "آیدی بله", email: "ایمیل", resume: "رزومه", notes: "یادداشت", status: "وضعیت" };
+const LABELS: Record<string, string> = { class_ls: "سطح و گام کلاس", full_name: "نام و نام خانوادگی", code: "کد", class_name: "کلاس", teacher_name: "استاد", class_day: "روز کلاس", class_time: "ساعت کلاس", level: "سطح / محدوده", education: "تحصیلات", hifz_amount: "میزان حفظ", tadabbur_amount: "میزان تدبر", phone: "شماره تماس", bale_number: "شماره بله", bale_id: "آیدی بله", email: "ایمیل", resume: "رزومه", notes: "یادداشت", status: "وضعیت" };
 const FORM_FIELDS: Record<Kind, string[]> = {
   student: ["full_name", "code", "class_name", "teacher_name", "class_day", "class_time", "level", "education", "hifz_amount", "tadabbur_amount", "phone", "bale_number", "bale_id", "email", "notes"],
   teacher: ["full_name", "phone", "bale_id", "email", "level", "class_name", "class_day", "class_time", "education", "resume", "notes"],
   supporter: ["full_name", "phone", "bale_id", "email", "class_name", "level", "notes"],
 };
 const TABLE_COLS: Record<Kind, string[]> = {
-  student: ["full_name", "code", "class_name", "level", "phone"],
+  student: ["full_name", "code", "class_name", "class_ls", "level", "phone"],
   teacher: ["full_name", "level", "class_name", "phone"],
   supporter: ["full_name", "class_name", "phone"],
 };
@@ -112,7 +115,15 @@ export function Registry() {
   const [tab, setTabRaw] = useState<RTab>("student");
   const setTab = (t: RTab) => { setTabRaw(t); try { localStorage.setItem("reg-tab", t); } catch { /* ignore */ } };
   useEffect(() => { try { const t = localStorage.getItem("reg-tab"); if (t && ["student", "teacher", "supporter", "stats", "import"].includes(t)) setTabRaw(t as RTab); } catch { /* ignore */ } }, []);
-  const [q, setQ] = useState(""); const [cls, setCls] = useState("");
+  const [q, setQ] = useState(""); const [cls, setCls] = useState(""); const [fLv, setFLv] = useState(""); const [fSt, setFSt] = useState("");
+  const [siteClasses, setSiteClasses] = useState<any[]>([]);
+  useEffect(() => { fetch("/api/classes").then(r => r.ok ? r.json() : null).then(d => setSiteClasses(d?.classes || [])).catch(() => {}); }, []);
+  // A learner inherits the level/step of their class (same name matching as the class roster: equal or contained, at least 3 letters).
+  const lsOfPerson = (p: Person) => {
+    const out = { level: new Set<string>(), step: new Set<string>() };
+    for (const part of (p.class_name || "").split("،")) { const rn = normClassName(part); if (rn.length < 3) continue; for (const c of siteClasses) { const cn = normClassName(c.name); if (cn.length >= 3 && (rn === cn || rn.includes(cn) || cn.includes(rn))) { const v = lsOf(c); if (v.level) out.level.add(v.level); if (v.step) out.step.add(v.step); } } }
+    return { level: Array.from(out.level), step: Array.from(out.step) };
+  };
   const [edit, setEdit] = useState<Person | null>(null);
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [imp, setImp] = useState<{ rows: Person[]; sheets: string[]; file: string } | null>(null);
@@ -124,7 +135,7 @@ export function Registry() {
   useEffect(() => { void load(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message || "خطا"); } finally { setBusy(false); } };
   const kind = (tab === "student" || tab === "teacher" || tab === "supporter") ? tab : null;
-  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && (!q || Object.values(p).some(v => typeof v === "string" && v.includes(q)))), [all, kind, cls, q]);
+  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && (!fLv || lsOfPerson(p).level.includes(fLv)) && (!fSt || lsOfPerson(p).step.includes(fSt)) && (!q || Object.values(p).some(v => typeof v === "string" && v.includes(q)))), [all, kind, cls, q]);
   const classes = useMemo(() => Array.from(new Set(all.filter(p => p.kind === kind).flatMap(p => (p.class_name || "").split("،").map(x => x.trim())).filter(Boolean))), [all, kind]);
   const students = all.filter(p => p.kind === "student"), active = students.filter(p => p.status !== "inactive");
 
@@ -142,11 +153,13 @@ export function Registry() {
     {kind && !edit && <>
       <div className="reg-tools">
         <input placeholder="جستجو…" value={q} onChange={e => setQ(e.target.value)} />
+        {kind === "student" && Array.from(new Set(siteClasses.map(c => lsOf(c).level).filter(Boolean))).length > 0 && <select value={fLv} onChange={e => setFLv(e.target.value)}><option value="">همه‌ی سطح‌ها</option>{Array.from(new Set(siteClasses.map(c => lsOf(c).level).filter(Boolean))).map(v => <option key={v}>{v}</option>)}</select>}
+        {kind === "student" && Array.from(new Set(siteClasses.map(c => lsOf(c).step).filter(Boolean))).length > 0 && <select value={fSt} onChange={e => setFSt(e.target.value)}><option value="">همه‌ی گام‌ها</option>{Array.from(new Set(siteClasses.map(c => lsOf(c).step).filter(Boolean))).map(v => <option key={v}>{v}</option>)}</select>}
         {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{classes.map(c => <option key={c}>{c}</option>)}</select>}
       </div>
       <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind], kind === "teacher"))}>خروجی اکسل</button></div>
       {!list.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
-      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => p.readonly ? setMsg(p.derived ? "این نام از فهرست قرآن‌آموزان آمده است؛ برای ثبت اطلاعات «افزودن» بزنید." : "این استاد از «حساب‌ها» آمده است؛ برای ویرایش به تب «حساب‌ها» بروید.") : setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "teacher" && <><small className={"memb-badge " + (p.has_account ? "in_class" : "")}>{accLabel(p)}</small><small className="memb-badge">{srcLabel(p)}{p.learners ? ` · ${p.learners} قرآن‌آموز` : ""}</small></>}{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
+      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => p.readonly ? setMsg(p.derived ? "این نام از فهرست قرآن‌آموزان آمده است؛ برای ثبت اطلاعات «افزودن» بزنید." : "این استاد از «حساب‌ها» آمده است؛ برای ویرایش به تب «حساب‌ها» بروید.") : setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "teacher" && <><small className={"memb-badge " + (p.has_account ? "in_class" : "")}>{accLabel(p)}</small><small className="memb-badge">{srcLabel(p)}{p.learners ? ` · ${p.learners} قرآن‌آموز` : ""}</small></>}{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : c === "class_ls" ? (() => { const v = lsOfPerson(p); return lsLabel(v.level.join("/"), v.step.join("/")) || "—"; })() : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
       <small className="reg-count">{list.length} مورد</small>
       {kind === "teacher" && noTeacher > 0 && <small className="reg-count" style={{ opacity: .6 }}>بدون استاد: {noTeacher} قرآن‌آموز</small>}
     </>}
