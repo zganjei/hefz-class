@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Notice } from "./notice";
 import { PassMarks } from "./pass-marks";
+import { LevelStepFilter, matchesLS, lsOf } from "./level-step";
+import { lsLabel } from "../lib/level-step";
 
-type Cls = { id: string; name: string };
+type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
+const clsName = (c: Cls) => { const x = lsOf(c); return c.name + (lsLabel(x.level, x.step) ? " · " + lsLabel(x.level, x.step) : ""); };
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const KIND: Record<string, string> = { hifz: "حسن حفظ", tadabbur: "تدبر", vocabulary: "لغت", final: "عمومی" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -17,12 +20,12 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 /** آزمون‌های کلاس: staff create exams + questions and see scores; learners take each exam once. */
 export function Exams({ user, classes }: { user: User; classes: Cls[] }) {
   const staff = user.role !== "memorizer";
-  const [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [lv, setLv] = useState(""), [st, setSt] = useState(""), [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   return <section className="panel">
     <h2>آزمون‌ها</h2>
     {open ? (staff ? <StaffExam id={open} back={() => setOpen("")} run={run} busy={busy} /> : <TakeExam id={open} back={() => setOpen("")} run={run} busy={busy} />)
-      : (staff ? <><PassMarks classes={classes} say={setMsg} /><StaffList classes={classes} openExam={setOpen} run={run} busy={busy} /></> : <LearnerList openExam={setOpen} run={run} />)}
+      : (staff ? <><LevelStepFilter classes={classes} level={lv} step={st} setLevel={setLv} setStep={setSt} /><PassMarks classes={classes.filter(c => matchesLS(c, lv, st))} say={setMsg} /><StaffList classes={classes.filter(c => matchesLS(c, lv, st))} openExam={setOpen} run={run} busy={busy} /></> : <LearnerList openExam={setOpen} run={run} />)}
     <Notice msg={msg} />
   </section>;
 }
@@ -37,12 +40,12 @@ function StaffList({ classes, openExam, run, busy }: { classes: Cls[]; openExam:
   return <>
     <div className="report-form">
       <h3>آزمون جدید</h3>
-      <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
+      <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{clsName(c)}</option>)}</select></label>
       <label>عنوان آزمون<input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثلاً آزمون گام اول" /></label>
       <label>تاریخ (اختیاری)<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
       <button className="primary-wide" disabled={busy || !classId || !title.trim()} onClick={() => void run(async () => { const r = await call("POST", "/api/exams", { action: "create_exam", classId, title, date }); setTitle(""); setDate(""); openExam(r.id); })}>ساخت آزمون</button>
     </div>
-    {exams.map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{e.class_name} · {fa(e.questions)} سؤال · {fa(e.attempts)} پاسخ</span><button className="secondary-action" onClick={() => openExam(e.id)}>باز کردن</button></div>)}
+    {exams.filter(e => classes.some(c => c.id === e.class_id)).map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{e.class_name} · {fa(e.questions)} سؤال · {fa(e.attempts)} پاسخ</span><button className="secondary-action" onClick={() => openExam(e.id)}>باز کردن</button></div>)}
     {!exams.length && <p className="empty-state">هنوز آزمونی ساخته نشده است.</p>}
   </>;
 }
