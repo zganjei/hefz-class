@@ -4,7 +4,7 @@ import { currentUser, jsonError } from "../../lib/auth.server";
 import { TEACHES_CLASS_SQL, canManageClass } from "../../lib/access.server";
 import { addDays, stockholmToday } from "../../lib/plan.server";
 import { programForClass } from "../../lib/program.server";
-import { classPeople, registryStudents, type Person } from "../../lib/class-people.server";
+import { classPeople, personHistory, registryStudents, type Person } from "../../lib/class-people.server";
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    const cards = [];
    for (const c of rows) {
     const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, globalWeeks, today);
-    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.length : 0, ...st });
+    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
    }
    return Response.json({ classes: cards });
   }
@@ -47,12 +47,16 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(classId).all<any>()).results || [];
   const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(classId).all<any>()).results || [];
   const manual = (await DB.prepare("SELECT id,registry_id,user_id,title,score,max_score,score_date::text AS score_date,note FROM class_manual_scores WHERE class_id=? ORDER BY score_date NULLS LAST, created_at").bind(classId).all<any>()).results || [];
+  const mine = user.role === "admin" ? null : new Set(((await DB.prepare(`SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}`).bind(user.id, user.id).all<any>()).results || []).map(r => r.id as string));
+  const histories = new Map<string, Awaited<ReturnType<typeof personHistory>>>();
+  for (const p of cp.people) histories.set(p.key, await personHistory(DB, p, mine));
   const learner = (p: Person) => ({
+   history: histories.get(p.key) || [],
    key: p.key, name: p.name, registered: p.registered, phone: p.phone, email: p.email, code: p.code, level: p.level, education: p.education, hifzAmount: p.hifzAmount, tadabburAmount: p.tadabburAmount, notes: p.notes,
    digital: exams.filter(e => att.some(a => a.exam_id === e.id && a.user_id === p.userId)).map(e => { const a = att.find(x => x.exam_id === e.id && x.user_id === p.userId)!; return { title: e.title, date: e.exam_date, score: Number(a.score), max: Number(a.max_score) }; }),
    manual: manual.filter(m => (p.registryId && m.registry_id === p.registryId) || (p.userId && m.user_id === p.userId)).map(m => ({ id: m.id, title: m.title, score: Number(m.score), max: m.max_score == null ? null : Number(m.max_score), date: m.score_date, note: m.note || "" })),
   });
-  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, active: cp.people.map(learner) });
+  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
@@ -85,6 +89,19 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    const id = crypto.randomUUID();
    await DB.prepare("INSERT INTO class_manual_scores(id,class_id,registry_id,user_id,person_name,title,score,max_score,score_date,note,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(id, classId, p.registryId, p.userId, p.name, title, score, max, date || null, note || null, user.id).run();
    return Response.json({ ok: true, id });
+  }
+
+  if (action === "leave" || action === "return") {   // append-only log; the reason is free text and stays with the class's staff
+   const cp = await classPeople(DB, classId), p = cp?.people.find(x => x.key === clip(body.person, 100));
+   if (!cp || !p) return jsonError("این قرآن‌آموز در این کلاس نیست.", 404);
+   if (action === "leave" && p.status === "left") return jsonError("این قرآن‌آموز قبلاً به‌عنوان ترک‌کرده ثبت شده است.", 409);
+   if (action === "return" && p.status === "active") return jsonError("این قرآن‌آموز ترک‌کرده نیست.", 409);
+   const date = clip(body.date, 10) || stockholmToday();
+   if (!isDate(date)) return jsonError("تاریخ نامعتبر است.");
+   const reason = clip(body.reason, 1000);
+   if (action === "leave" && !reason) return jsonError("دلیل ترک را بنویسید.");
+   await DB.prepare("INSERT INTO learner_history(id,class_id,class_name,registry_id,user_id,person_name,event,term,position_note,reason,event_date,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(), classId, cp.cls.name, p.registryId, p.userId, p.name, action === "leave" ? "left" : "returned", clip(body.term, 80) || null, clip(body.position, 300) || null, reason || null, date, user.id).run();
+   return Response.json({ ok: true, status: action === "leave" ? "left" : "active" });
   }
   return jsonError("درخواست نامعتبر است.");
  }
