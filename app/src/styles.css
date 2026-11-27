@@ -366,3 +366,17 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .adm *{min-width:0}
 .adm .app-card{margin:0}
 .adm .app-meta span{text-align:right}
+
+/* ---- Foundation applied to the older shared classes so every tab matches the adm-* look (same radius, type scale, hint and note styles). ---- */
+.m-app button.ghost-wide{background:var(--bg-ece8d9)!important;color:var(--tx-174b3b)!important;font-weight:600;width:100%}
+.m-app .panel{border-color:var(--bd-eae6db);box-shadow:none}
+.m-app .panel h2{font-size:18px;font-weight:700;color:var(--tx-174b3b);margin:0 0 12px}
+.m-app .primary-wide,.m-app .secondary-action{font-weight:600}
+.m-app .plan-hint,.m-app .hint{display:block;margin:0;text-align:start;font-size:13.5px;line-height:1.9;color:var(--tx-7a8a80)}
+.m-app .invite-result{display:grid;gap:10px;padding:12px;border-radius:12px;background:var(--bg-f5f6ef);border:1px solid var(--bd-eae6db);font-size:15px;overflow-wrap:anywhere}
+.m-app .invite-result button{justify-self:stretch}
+.m-app .report-form{max-width:none}
+.m-app .report-form>h3,.m-app .sheet-h{font-size:16px;font-weight:700;color:var(--tx-174b3b)}
+.m-app .simple-row{border-top:1px solid var(--bd-efede5);padding:10px 0;align-items:center}
+.m-app .error-msg{border-radius:12px}
+.m-app .m-content *{min-width:0}
