@@ -172,20 +172,13 @@ function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
   </section>;
 }
 
-const OWN_KEY = "hefz.teacherOwnPlan";
-
 export function HefzPlan({ user, classes }: { user: User; classes: { id: string; name: string }[] }) {
-  const isAdmin = user.role === "admin", isTeacher = user.role === "teacher", staff = isAdmin || isTeacher;
-  // Teachers are not learners: by default they see only the class report. Opt-in (this device) shows their own plan too. Admins keep both.
-  const [optIn, setOptIn] = useState(false);
-  useEffect(() => { try { setOptIn(localStorage.getItem(OWN_KEY) === "1"); } catch { /* storage blocked */ } }, []);
-  const toggleOptIn = (on: boolean) => { setOptIn(on); try { on ? localStorage.setItem(OWN_KEY, "1") : localStorage.removeItem(OWN_KEY); } catch { /* ignore */ } };
-  const showOwn = isAdmin || (isTeacher && optIn);
-  const [view, setView] = useState<"mine" | "class">(staff ? "class" : "mine");
-  const current = !staff ? "mine" : showOwn ? view : "class";
+  const isAdmin = user.role === "admin", isTeacher = user.role === "teacher";
+  // Teachers are not learners: they see only the class report. Admins keep both tabs.
+  const [view, setView] = useState<"mine" | "class">(isAdmin || isTeacher ? "class" : "mine");
+  const current = isTeacher ? "class" : isAdmin ? view : "mine";
   return <section className="m-plan">
-    {showOwn && <div className="m-seg"><button className={current === "class" ? "on" : ""} onClick={() => setView("class")}>گزارش کلاس</button><button className={current === "mine" ? "on" : ""} onClick={() => setView("mine")}>برنامه‌ی من</button></div>}
+    {isAdmin && <div className="m-seg"><button className={current === "class" ? "on" : ""} onClick={() => setView("class")}>گزارش کلاس</button><button className={current === "mine" ? "on" : ""} onClick={() => setView("mine")}>برنامه‌ی من</button></div>}
     {current === "mine" ? <LearnerPlan /> : <TeacherPlan classes={classes} />}
-    {isTeacher && <label className="plan-hint own-optin"><input type="checkbox" checked={optIn} onChange={e => toggleOptIn(e.target.checked)} /> برنامه‌ی حفظ خودم را هم نشان بده</label>}
   </section>;
 }
