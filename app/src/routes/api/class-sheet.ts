@@ -84,7 +84,9 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
      if (oldKey) for (const r of ((await DB.prepare("SELECT id,class_name FROM registry_people WHERE kind='student' AND class_name IS NOT NULL").all<{ id: string; class_name: string }>()).results || [])) if (normClassName(r.class_name) === oldKey) await DB.prepare("UPDATE registry_people SET class_name=? WHERE id=?").bind(name, r.id).run();
     }
    }
-   await DB.prepare("UPDATE classes SET term=?,position_note=? WHERE id=?").bind(clip(body.term, 80) || null, clip(body.positionNote, 300) || null, classId).run();
+   // «ترم» is no longer in the UI; old clients may still send it. Fields that are not sent stay untouched.
+   if (body.term !== undefined) await DB.prepare("UPDATE classes SET term=? WHERE id=?").bind(clip(body.term, 80) || null, classId).run();
+   if (body.positionNote !== undefined) await DB.prepare("UPDATE classes SET position_note=? WHERE id=?").bind(clip(body.positionNote, 300) || null, classId).run();
    return Response.json({ ok: true });
   }
 
