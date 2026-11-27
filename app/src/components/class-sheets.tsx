@@ -27,13 +27,13 @@ const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people"
 /** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs اطلاعات کلاس / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
 export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
   const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [sub, setSub] = useState("info"), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [name, setName] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false), [editId, setEditId] = useState("");
+  const [name, setName] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false);
   const auto = useRef(true);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; setOpen(c[0].id); } };
   const refresh = () => call("GET", "/api/class-sheet").then(x => setCards(x.classes)).catch(() => {});
   useEffect(() => { void run(load); }, []);
-  const isAdmin = user.role === "admin", canSet = isAdmin || user.role === "teacher";
+  const isAdmin = user.role === "admin";
   const seg = isAdmin && !open && <div className="m-seg"><button className={!mine ? "on" : ""} onClick={() => setMine(false)}>کلاس‌ها</button><button className={mine ? "on" : ""} onClick={() => setMine(true)}>برنامه‌ی من</button></div>;
   if (isAdmin && mine && !open) return <section className="m-plan">{seg}<LearnerPlan /></section>;
   const card = cards?.find(c => c.id === open);
@@ -68,8 +68,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
     {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => { setSub("info"); setOpen(c.id); }} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSub("info"); setOpen(c.id); } }}>
       <b>{c.name}</b>
-      <LevelStepChips level={c.level} step={c.step} onEdit={canSet ? () => setEditId(editId === c.id ? "" : c.id) : undefined} />
-      {editId === c.id && <div onClick={e => e.stopPropagation()}><LevelStepEditor level={c.level} step={c.step} busy={busy} onSave={(level, step) => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-level-step", classId: c.id, level, step }); setEditId(""); await load(); setMsg("سطح و گام ذخیره شد ✅"); })} /></div>}
+      <LevelStepChips level={c.level} step={c.step} />
       <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
     </div>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}

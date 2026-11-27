@@ -393,6 +393,5 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .ls-chip{display:inline-flex;gap:4px;align-items:center;padding:3px 10px;border-radius:13px;background:#f3ead7;color:#7a5a1f;font-size:13px}
 .ls-chip b{font-size:13px!important;color:inherit!important;font-weight:700}
 .ls-chip.unset{background:#eceee6;color:var(--tx-7a8a80)}.ls-chip.unset b{font-weight:400}
-.m-app button.ls-edit,.ls-edit{min-height:0;width:auto;padding:3px 12px;border:1px solid var(--bd-e8e7dc);border-radius:13px;background:transparent;color:var(--tx-415b49);font-size:13px}
 .sheet-card.cls{cursor:pointer;gap:8px}.sheet-card .ls-chip{font-size:13px}.sheet-card .cls-info{font-size:13px;color:var(--tx-7a8a80)}
 .adm-position{margin:0 0 8px;font-size:15px;line-height:1.9}.adm-position p{margin:0}.adm-position i{font-style:normal;color:var(--tx-7a8a80)}
