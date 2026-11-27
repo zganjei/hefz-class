@@ -38,6 +38,7 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   const enrollments = await c("SELECT COUNT(*) AS n FROM course_enrollments WHERE class_id=?", classId);
   const submissions = await c("SELECT COUNT(*) AS n FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE e.class_id=?", classId);
   const learners = ((await DB.prepare("SELECT DISTINCT u.display_name AS name FROM users u WHERE u.id IN (SELECT e.user_id FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE e.class_id=? UNION SELECT p.user_id FROM lesson_progress p JOIN course_lessons l ON l.id=p.lesson_id JOIN course_weeks w ON w.id=l.week_id JOIN courses co ON co.id=w.course_id WHERE co.class_id=? UNION SELECT a.user_id FROM quiz_attempts a JOIN course_lessons l ON l.id=a.lesson_id JOIN course_weeks w ON w.id=l.week_id JOIN courses co ON co.id=w.course_id WHERE co.class_id=?) ORDER BY 1").bind(classId, classId, classId).all()).results || []).map((r: any) => String(r.name));
+  const manualScores = await c("SELECT COUNT(*) AS n FROM class_manual_scores WHERE class_id=?", classId);
   const blockers: string[] = [];
   if (otherMembers) blockers.push(`${otherMembers} عضو (غیر از شما)`);
   if (otherTeachers) blockers.push("معلم دارد");
@@ -45,6 +46,7 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   if (assignments) blockers.push(`${assignments} برنامه‌ی ثبت‌شده`);
   if (reports) blockers.push(`${reports} گزارش`);
   if (program) blockers.push("برنامه‌ی مطالعه به آن وصل است");
+  if (manualScores) blockers.push(`${manualScores} نمره‌ی دستی`);
   const courseLine = courses || weeks || lessons || enrollments || submissions ? `اطلاعات قدیمی دوره: ${courses} دوره، ${weeks} هفته، ${lessons} درس، ${enrollments} ثبت‌نام، ${submissions} تحویل` + (learners.length ? ` (قرآن‌آموزان دارای تحویل/پیشرفت/آزمون: ${learners.join("، ")})` : "") : "";
   return { id: cls.id as string, name: cls.name as string, blockers, willRemove: ["خود کلاس", ...(await c("SELECT COUNT(*) AS n FROM class_members WHERE class_id=? AND user_id=?", classId, adminId) ? ["عضویت شما در کلاس"] : []), ...(courseLine ? [courseLine] : [])] };
 }

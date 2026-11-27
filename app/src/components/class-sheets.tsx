@@ -1,0 +1,92 @@
+import { useEffect, useState } from "react";
+
+type User = { id: string; role: "admin" | "teacher" | "memorizer" };
+const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+const sc = (s: number, m: number | null) => fa(s) + (m ? "/" + fa(m) : "");
+
+async function call(method: "GET" | "POST", path: string, body?: unknown) {
+  const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({ error: "پاسخ نامعتبر بود." }));
+  if (!r.ok) throw new Error(d.error || "خطا");
+  return d;
+}
+
+/** کلاس‌ها: a card per class of the teacher (admin: all), a form for a new class/term, and one sheet per class (active learners, info, digital and hand-entered scores). */
+export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () => void }) {
+  const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [name, setName] = useState(""), [term, setTerm] = useState(""), [pos, setPos] = useState("");
+  const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
+  const load = async () => setCards((await call("GET", "/api/class-sheet")).classes);
+  useEffect(() => { void run(load); }, []);
+  if (open) return <ClassSheet id={open} back={() => { setOpen(""); void run(load); }} />;
+  return <section className="panel">
+    <h2>کلاس‌های من</h2>
+    {user.role === "teacher" && <div className="report-form">
+      <h3>کلاس یا ترم جدید</h3>
+      <label>نام کلاس<input value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً ورودی ۱۴۰۵ گام اول" /></label>
+      <label>ترم یا دوره (اختیاری)<input value={term} onChange={e => setTerm(e.target.value)} placeholder="مثلاً ترم سوم" /></label>
+      <label>جایگاه فعلی کلاس (اختیاری)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
+      <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, term, positionNote: pos }); setName(""); setTerm(""); setPos(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
+    </div>}
+    {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
+    {cards?.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => setOpen(c.id)}>
+      <b>{c.name}{c.term ? " · " + c.term : ""}</b>
+      <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · معلم: " + c.teacher : ""}</span>
+      {c.positionNote && <span>جایگاه: {c.positionNote}</span>}
+      <span>{c.program ? "برنامه: " + c.program : "برنامه‌ی عمومی"}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) : ""}</span>
+    </button>)}
+    {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
+    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+  </section>;
+}
+
+function ClassSheet({ id, back }: { id: string; back: () => void }) {
+  const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState("");
+  const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
+  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); setTerm(x.term); setPos(x.positionNote); };
+  useEffect(() => { void run(load); }, [id]);
+  if (!d) return <section className="panel"><button className="secondary-action" onClick={back}>← کلاس‌ها</button>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
+  return <section className="panel">
+    <button className="secondary-action" onClick={back}>← کلاس‌ها</button>
+    <h2 style={{ marginTop: 12 }}>{d.name}</h2>
+    <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال · {d.program ? "برنامه: " + d.program : "برنامه‌ی عمومی"}{d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : ""}</p>
+    <div className="report-form">
+      <label>ترم یا دوره<input value={term} onChange={e => setTerm(e.target.value)} /></label>
+      <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
+      <button className="secondary-action" disabled={busy || (term === d.term && pos === d.positionNote)} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, term, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی ترم و جایگاه</button>
+    </div>
+    <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
+    {d.active.map((l: any) => <Learner key={l.key} l={l} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+    {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
+    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+  </section>;
+}
+
+function Learner({ l, classId, open, toggle, run, busy, reload }: { l: any; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
+  const [title, setTitle] = useState(""), [score, setScore] = useState(""), [max, setMax] = useState(""), [date, setDate] = useState(""), [note, setNote] = useState("");
+  const all = l.digital.length + l.manual.length;
+  return <article className="sheet-learner">
+    <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
+    {open && <div className="sheet-body">
+      <div className="sheet-info">
+        {l.phone && <span>تلفن: <bdi dir="ltr">{l.phone}</bdi></span>}{l.email && <span>ایمیل: <bdi dir="ltr">{l.email}</bdi></span>}
+        {l.code && <span>کد: {l.code}</span>}{l.level && <span>سطح: {l.level}</span>}{l.education && <span>تحصیلات: {l.education}</span>}
+        {l.hifzAmount && <span>حفظ: {l.hifzAmount}</span>}{l.tadabburAmount && <span>تدبر: {l.tadabburAmount}</span>}{l.notes && <span>یادداشت: {l.notes}</span>}
+      </div>
+      <h4>نمره‌ها</h4>
+      {l.digital.map((s: any, i: number) => <div className="simple-row" key={"d" + i}><b>{s.title}</b><span>{sc(s.score, s.max)} · آزمون سامانه</span></div>)}
+      {l.manual.map((s: any) => <div className="simple-row" key={s.id}><b>{s.title}</b><span>{sc(s.score, s.max)}{s.date ? " · " + s.date : ""}{s.note ? " · " + s.note : ""}</span>
+        <button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "delete-score", id: s.id }); await reload(); })}>حذف</button></div>)}
+      {!all && <p className="empty-state">هنوز نمره‌ای ثبت نشده است.</p>}
+      <div className="report-form">
+        <h4>افزودن نمره‌ی دستی</h4>
+        <label>عنوان (مثلاً گام اول، ترم دوم)<input value={title} onChange={e => setTitle(e.target.value)} /></label>
+        <div className="form-pair"><label>نمره<input inputMode="decimal" value={score} onChange={e => setScore(e.target.value)} /></label><label>از (اختیاری)<input inputMode="decimal" value={max} onChange={e => setMax(e.target.value)} placeholder="۲۰" /></label></div>
+        <label>تاریخ (اختیاری)<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+        <label>یادداشت (اختیاری)<input value={note} onChange={e => setNote(e.target.value)} /></label>
+        <button className="primary-wide" disabled={busy || !title.trim() || !score.trim()} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "add-score", classId, person: l.key, title, score, max, date, note }); setTitle(""); setScore(""); setMax(""); setDate(""); setNote(""); await reload(); })}>ثبت نمره</button>
+      </div>
+    </div>}
+  </article>;
+}

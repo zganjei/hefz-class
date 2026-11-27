@@ -29,7 +29,8 @@ export const Route=createFileRoute("/api/classes")({server:{handlers:{
   if(!name||!teacherId)return jsonError("نام کلاس و معلم را مشخص کنید.");
   const {DB}=bindings(); if(!DB)return jsonError("پایگاه داده آماده نیست.",503);
   const teacher=await DB.prepare("SELECT id FROM users WHERE id=? AND role='teacher' AND active=1").bind(teacherId).first(); if(!teacher)return jsonError("معلم معتبر نیست.");
-  const id=crypto.randomUUID(); await DB.prepare("INSERT INTO classes(id,name,description,teacher_id) VALUES(?,?,?,?)").bind(id,name,typeof body?.description==="string"?body.description.slice(0,500):"",teacherId).run();
+  const id=crypto.randomUUID(); const term=typeof body?.term==="string"?body.term.trim().slice(0,80):"",positionNote=typeof body?.positionNote==="string"?body.positionNote.trim().slice(0,300):"";
+  await DB.prepare("INSERT INTO classes(id,name,description,teacher_id,term,position_note) VALUES(?,?,?,?,?,?)").bind(id,name,typeof body?.description==="string"?body.description.slice(0,500):"",teacherId,term||null,positionNote||null).run();
   await DB.prepare("INSERT INTO class_teachers(class_id,user_id,added_by) VALUES(?,?,?) ON CONFLICT DO NOTHING").bind(id,teacherId,user.id).run();
   return Response.json({id,name},{status:201});
  }
