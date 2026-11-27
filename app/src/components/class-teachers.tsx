@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Notice } from "./notice";
 
 async function call(method: string, path: string, body?: unknown) {
   const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -32,6 +33,6 @@ export function ClassTeachers() {
       <label>معلم<select value={teacherId} onChange={e => setTeacherId(e.target.value)}><option value="">انتخاب معلم</option>{teachers.map(t => <option value={t.id} key={t.id}>{t.display_name}</option>)}</select></label>
       <button className="primary-wide" disabled={busy || !classId || !teacherId} onClick={() => void run(async () => { await call("POST", "/api/class-teachers", { classId, userId: teacherId }); await loadCurrent(classId); setTeacherId(""); setMsg("معلم به کلاس اضافه شد ✅"); })}>افزودن معلم به کلاس</button>
     </div>
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </section>;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Notice } from "./notice";
 
 async function call(method: string, path: string, body?: unknown) {
   const r = await fetch(path, { method, ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}) });
@@ -54,7 +55,7 @@ export function RegistryClasses({ onCreated }: { onCreated?: () => void }) {
         </div>}
       </div>)}
     </div>
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </section>;
 }
 
@@ -75,6 +76,6 @@ function MembersPanel() {
       {plan.missingClasses.map(c => <div className="simple-row" key={c.name}><small>{c.name}</small><small>{fa(c.students)} نفر</small></div>)}
       <button className="primary-wide" disabled={busy || !plan.counts.toAdd} onClick={() => void run(async () => { const d = await call("POST", "/api/registry-members"); setPlan(d); setMsg(`${fa(d.added)} نفر در کلاس‌شان ثبت شدند ✅`); })}>ثبت قرآن‌آموزان در کلاس‌هایشان</button>
     </>}
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </div>;
 }

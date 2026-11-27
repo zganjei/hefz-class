@@ -55,7 +55,14 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    const id = clip(body.id, 100); if (!id) return jsonError("شناسه لازم است.");
    const used = await DB.prepare("SELECT COUNT(*) AS n FROM classes WHERE program_id=?").bind(id).first<{ n: number }>();
    if (Number(used?.n)) return jsonError("این برنامه هنوز به یک کلاس وصل است. اول برنامهٔ کلاس‌ها را عوض کنید.", 409);
-   await DB.prepare("DELETE FROM hefz_programs WHERE id=?").bind(id).run();
+   // Delete children explicitly instead of relying on ON DELETE CASCADE existing in every deployed schema.
+   try {
+    await DB.prepare("DELETE FROM hefz_program_ticks WHERE program_id=?").bind(id).run();
+    await DB.prepare("DELETE FROM hefz_program_weeks WHERE program_id=?").bind(id).run();
+    await DB.prepare("DELETE FROM hefz_programs WHERE id=?").bind(id).run();
+   } catch (e: any) { return jsonError("حذف برنامه ناموفق بود: " + String(e?.message || e).slice(0, 160), 500); }
+   const still = await DB.prepare("SELECT COUNT(*) AS n FROM hefz_programs WHERE id=?").bind(id).first<{ n: number }>();
+   if (Number(still?.n)) return jsonError("برنامه حذف نشد. دوباره امتحان کنید.", 500);
    return Response.json({ ok: true });
   }
 

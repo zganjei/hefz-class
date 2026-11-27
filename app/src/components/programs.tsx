@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Notice } from "./notice";
 import * as XLSX from "xlsx";
 import { parseProgramRows, suggestProgramName, type ParseResult } from "../lib/program-parse";
 
@@ -50,7 +51,7 @@ export function Programs() {
   return <section className="panel programs-panel">
     <h2>برنامه‌های مطالعه</h2>
     <p className="hint">هر برنامه یک‌بار تعریف می‌شود و هر کلاس فقط یک برنامه دارد؛ قرآن‌آموزان برنامهٔ روزانه را و معلم جایگاه فعلی کلاس را می‌بیند. کلاسی که برنامه ندارد از برنامهٔ عمومی پیروی می‌کند.</p>
-    {msg && <p className="error-msg">{msg}</p>}{ok && <p className="hint">{ok}</p>}
+    <Notice msg={msg || ok} />
 
     <div className="report-form">
       <h3>برنامهٔ جدید</h3>
