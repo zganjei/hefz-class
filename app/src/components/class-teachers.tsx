@@ -13,13 +13,13 @@ type Teacher = { id: string; display_name: string };
 type Current = { id: string; display_name: string; is_primary: number };
 
 /** Admin only: add a teacher to a class (co-teacher) and list/remove co-teachers. Uses /api/class-teachers and /api/staff. */
-export function ClassTeachers() {
+export function ClassTeachers({ refreshKey = 0 }: { refreshKey?: number }) {
   const [classes, setClasses] = useState<Cls[]>([]), [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classId, setClassId] = useState(""), [teacherId, setTeacherId] = useState("");
   const [current, setCurrent] = useState<Current[]>([]), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const loadCurrent = async (id: string) => { if (!id) { setCurrent([]); return; } const d = await call("GET", "/api/class-teachers?classId=" + encodeURIComponent(id)); setCurrent(d.teachers || []); };
-  useEffect(() => { void run(async () => { const [c, t] = await Promise.all([call("GET", "/api/classes"), call("GET", "/api/staff")]); setClasses(c.classes || []); setTeachers(t.teachers || []); }); }, []);
+  useEffect(() => { void run(async () => { const [c, t] = await Promise.all([call("GET", "/api/classes"), call("GET", "/api/staff")]); setClasses(c.classes || []); setTeachers(t.teachers || []); if (classId && !(c.classes || []).some((x: Cls) => x.id === classId)) setClassId(""); }); }, [refreshKey]);   // refreshKey: classes created/deleted elsewhere
   useEffect(() => { void run(() => loadCurrent(classId)); }, [classId]);
   return <section className="panel">
     <h2>معلم‌های کلاس</h2>
