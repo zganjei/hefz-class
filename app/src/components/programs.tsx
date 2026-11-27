@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
-import { parseProgramRows, type ParseResult } from "../lib/program-parse";
+import { parseProgramRows, suggestProgramName, type ParseResult } from "../lib/program-parse";
 
 type Program = { id: string; name: string; weeks: number };
 type Cls = { id: string; name: string; program_id: string | null; program_start: string | null; start_label: string | null; member_count: number };
@@ -27,7 +27,7 @@ export function Programs() {
     const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1 });
     const r = parseProgramRows(rows); if (!r.weeks.length) throw new Error("در این فایل هفته‌ای پیدا نشد. ستون‌ها باید «روز، تاریخ، حفظ جدید، مرور ده درس، سبد کل» باشند.");
-    setPrev(r); if (!name) setName(f.name.replace(/\.[^.]+$/, ""));
+    setPrev(r); if (!name) { const base = f.name.replace(/\.[^.]+$/, ""); setName(suggestProgramName(rows) || (/^[\d_\s-]+$/.test(base) ? "" : base)); }
   });
   const onPaste = () => run(async () => {
     const r = parseProgramRows(pasted.split(/\r?\n/).map(l => l.split("\t")));
