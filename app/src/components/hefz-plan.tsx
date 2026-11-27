@@ -199,8 +199,8 @@ export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id
       {data && <label>مشاهدهٔ هفته{data.program && (week ?? data.week.week_number) === data.currentWeek && <span className="adm-badge" style={{ justifySelf: "start" }}>هفتهٔ جاری کلاس</span>}<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}
-    {data && <ClassPosition hasProgram={!!data.program} status={data.program && data.currentWeek == null ? "ended" : undefined} week={data.program && data.currentWeek != null ? { week_number: data.currentWeek, title: data.currentWeekTitle || "" } : null} note={data.positionNote} onAttach={onAttach} />}
-    {data?.program && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b></p>}
+    {data && !fixedClassId && <ClassPosition hasProgram={!!data.program} status={data.program && data.currentWeek == null ? "ended" : undefined} week={data.program && data.currentWeek != null ? { week_number: data.currentWeek, title: data.currentWeekTitle || "" } : null} note={data.positionNote} onAttach={onAttach} />}
+    {data?.program && !fixedClassId && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b></p>}
     {data && !data.program && <p className="plan-hint">هفته‌های زیر از برنامهٔ عمومی است، چون برنامه‌ای به این کلاس وصل نیست.</p>}
     {data && <article className="plan-week current"><div className="plan-week-head static"><div><b>هفتهٔ {fa(data.week.week_number)} · {data.week.title}</b><small>{pageLabel(data.week)}</small></div></div>
       <div className="m-members">
@@ -210,7 +210,7 @@ export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id
         </div>; })}
         {!data.members.length && <p className="empty-state">هنوز حافظی در این کلاس نیست.</p>}
         <p className="plan-hint">✓ انجام شد · نقطه: هنوز نه · ک: کلاس · خط: استراحت</p></div></article>}
-    {classId && <ClassRoster classId={classId} />}
+    {classId && !fixedClassId && <ClassRoster classId={classId} />}
   </section>;
 }
 
