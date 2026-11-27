@@ -320,3 +320,6 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .roster-meta{display:grid;gap:4px;padding:2px 14px 10px;font-size:14px}.roster-meta p,.roster-line{margin:2px 0}.roster-meta i,.roster-line i{color:var(--tx-6f7f75);font-style:normal}
 .roster-row summary{display:flex;justify-content:space-between;gap:8px;cursor:pointer;font-size:16px;list-style:none}.roster-row summary::-webkit-details-marker{display:none}.roster-row summary span{color:var(--tx-6f7f75);font-size:13px}
 .roster-row[open] summary{margin-bottom:8px}.roster-line{font-size:14px;overflow-wrap:anywhere}.roster-scores{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd-ece9dc);font-size:14px}
+
+.choice{display:flex;align-items:center;gap:.5rem;flex-direction:row}
+.choice input{width:auto}
