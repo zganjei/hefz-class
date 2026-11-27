@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { VideoList, setWatched } from "./videos";
+import type { VideoView } from "../lib/video";
 import { ALL_ROLES, ROLE_FA, rolesOf, type AppRole } from "../lib/roles";
 import { viewRolesOf } from "../lib/view-mode";
 
@@ -10,6 +12,26 @@ async function send(path: string, body: unknown, method: string) {
   return d;
 }
 const VIEW_HINT: Record<string, string> = { admin: "مدیریت کلاس‌ها، دفتر و درخواست‌ها", teacher: "کلاس‌های من", memorizer: "برنامه و آزمون‌های من" };
+
+type PW = { week_number: number; title: string; open: boolean; videos?: VideoView[] };
+/** The learner's videos: every video of the weeks already open in their class program (same unlocking rule as the plan). */
+function MyVideos() {
+  const [weeks, setWeeks] = useState<PW[] | null>(null), [program, setProgram] = useState<string | null>(null), [err, setErr] = useState("");
+  const load = () => fetch("/api/plan").then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "خطا"); setProgram(d.program?.name ?? null); setWeeks((d.weeks as PW[]).filter(w => w.open && w.videos?.length).reverse()); setErr(""); }).catch(e => setErr(e.message || "خطا"));
+  useEffect(() => { void load(); }, []);
+  const watch = async (v: VideoView) => {
+    const next = !v.watched;
+    setWeeks(ws => ws && ws.map(w => ({ ...w, videos: (w.videos || []).map(x => x.id === v.id ? { ...x, watched: next } : x) })));
+    try { await setWatched(v.id, next); setErr(""); } catch (e: any) { setErr("ذخیره نشد: " + (e.message || "خطا")); void load(); }
+  };
+  if (err && !weeks) return <p className="error-msg">{err}</p>;
+  if (!weeks) return <p className="empty-state">در حال بارگذاری…</p>;
+  return <>
+    {err && <p className="error-msg" role="alert">{err}</p>}
+    {!weeks.length && <p className="empty-state">{program ? "هنوز ویدئویی برای هفته‌های باز برنامهٔ کلاس شما نیست. ویدئوها هر هفته در «برنامه» کنار درس همان هفته هم می‌آیند." : "ویدئوهای هر هفته در برنامهٔ کلاس شما نمایش داده می‌شود؛ هنوز برنامه‌ای به کلاس شما وصل نیست. به بخش «برنامه» بروید."}</p>}
+    {weeks.map(w => <VideoList key={w.week_number} videos={w.videos!} title={`هفتهٔ ${String(w.week_number).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d])} · ${w.title}`} onToggle={v => void watch(v)} />)}
+  </>;
+}
 
 /** Own account page: change the active view, rename, add/remove own non-admin roles, see videos placeholder (learner view only), sign out. */
 export function Profile({ user, view, setView, onUser, notify, onLogout }: { user: U; view: AppRole | null; setView: (r: AppRole) => void; onUser: (u: U) => void; notify: (m: string) => void; onLogout: () => void }) {
@@ -50,7 +72,7 @@ export function Profile({ user, view, setView, onUser, notify, onLogout }: { use
     </section>
     {view === "memorizer" && <section className="panel adm-block" aria-label="ویدئوها">
       <h3>ویدئوها</h3>
-      <p className="empty-state">ویدئوهای درس و تدبر به‌زودی اینجا می‌آید.</p>
+      <MyVideos />
     </section>}
     <button className="adm-btn quiet" onClick={onLogout}>خروج از حساب</button>
   </div>;

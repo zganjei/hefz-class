@@ -34,3 +34,15 @@ test("validateVideoInput", () => {
   expect(validateVideoInput({ title: "عنوان", description: "x".repeat(501), url: "https://x.com" }).ok).toBe(false);
   expect(validateVideoInput({ title: "x".repeat(121), url: "https://x.com" }).ok).toBe(false);
 });
+
+import { videosForWeeks } from "../src/lib/video.server";
+const fakeDB = (rows: any[], seen: string[] = [], boom = false): any => ({ prepare: (q: string) => ({ bind: () => ({ all: async () => { if (boom) throw new Error("relation does not exist"); return { results: q.includes("video_views") ? seen.map(video_id => ({ video_id })) : rows }; } }) }) });
+const row = (week_index: number, id: string, url: string) => ({ week_index, id, title: id, kind: "tadabbur", url, description: "", duration_text: "", range_note: "" });
+test("videosForWeeks: only requested (open) weeks, embed derived server-side, bad URL dropped, watched flag", async () => {
+  const m = await videosForWeeks(fakeDB([row(1, "a", "https://youtu.be/dQw4w9WgXcQ"), row(2, "b", "https://youtu.be/dQw4w9WgXcQ"), row(1, "c", "javascript:alert(1)")], ["a"]), "p", [1], "u");
+  expect([...m.keys()]).toEqual([1]);
+  expect(m.get(1)!.map(v => [v.id, v.watched, v.provider])).toEqual([["a", true, "youtube"]]);
+});
+test("videosForWeeks: DB error degrades to no videos", async () => {
+  expect((await videosForWeeks(fakeDB([], [], true), "p", [1], "u")).size).toBe(0);
+});

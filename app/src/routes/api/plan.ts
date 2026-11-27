@@ -7,6 +7,7 @@ import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabe
 import { programForClass, programForUser, type ClassProgram } from "../../lib/program.server";
 import { resolveRange, quranComUrl, tadabburFor, audioFor, translationFor } from "../../lib/quran.server";
 import { hasRoleSql } from "../../lib/roles";
+import { videosForWeeks, seenCounts } from "../../lib/video.server";
 
 const TRACK = "online";   // an offline track will reuse hefz_daily_ticks.track later
 
@@ -49,7 +50,8 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
     : (await DB.prepare("SELECT item FROM hefz_daily_ticks WHERE user_id=? AND track=? AND week_number=? AND day_index=?").bind(user.id, TRACK, week.week_number, idx).all<{ item: string }>()).results) || [];
    const weekly = prog ? null : await DB.prepare("SELECT 1 AS x FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, week.week_number, idx).first<{ x: number }>();
    const done = new Set(ticks.map(t => t.item)); if (weekly) done.add("memorize");
-   return Response.json({ track: TRACK, program: progInfo, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], date, jdate: jalaliLabel(date), kind: day.kind, isToday: date === today, future: date > today, prev: locateDay(openDated, prev) ? prev : null, next: locateDay(openDated, next) ? next : null },
+   const wVideos = prog ? (await videosForWeeks(DB, prog.programId, [week.week_number], user.id)).get(week.week_number) ?? [] : [];   // the week is open (openDated), so its videos are visible
+   return Response.json({ track: TRACK, program: progInfo, videos: wVideos, today, week: { week_number: week.week_number, title: week.title }, day: { index: idx, name: DAY_NAMES[idx], date, jdate: jalaliLabel(date), kind: day.kind, isToday: date === today, future: date > today, prev: locateDay(openDated, prev) ? prev : null, next: locateDay(openDated, next) ? next : null },
     items: DAILY_ITEMS.map(key => { const ranges = itemRanges(key, day); return { key, label: ITEM_LABELS[key], ranges, done: done.has(key),
      ...(key === "memorize" ? { links: ranges.map(quranComUrl) } : {}), ...(key === "listen" ? { audio: ranges.map(audioFor) } : {}), ...(key === "translate" ? { translation: ranges.map(translationFor) } : {}), ...(key === "tadabbur" ? { tadabbur: ranges.map(tadabburFor) } : {}) }; }) });
   }
@@ -99,7 +101,10 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
     ? (await DB.prepare("SELECT t.user_id,COUNT(*) AS n FROM hefz_program_ticks t JOIN class_members m ON m.user_id=t.user_id AND m.class_id=? WHERE t.program_id=? AND t.item='memorize' GROUP BY t.user_id").bind(classId, prog.programId).all<{ user_id: string; n: number }>()).results
     : (await DB.prepare("SELECT p.user_id,COUNT(*) AS n FROM hefz_plan_progress p JOIN class_members m ON m.user_id=p.user_id AND m.class_id=? GROUP BY p.user_id").bind(classId).all<{ user_id: string; n: number }>()).results) || [];
    const days = expandWeek(week, today, new Set());
+   const wv = prog ? (await videosForWeeks(DB, prog.programId, [week.week_number], null)).get(week.week_number) ?? [] : [];
+   const seen = await seenCounts(DB, classId, wv.map(v => v.id));
    return Response.json({
+    videos: wv.map(v => ({ ...v, seen: seen.get(v.id) ?? 0, total: members.length })),
     program: progInfo, positionNote: (await DB.prepare("SELECT position_note FROM classes WHERE id=?").bind(classId).first<any>())?.position_note || "", currentWeek, currentWeekTitle: all.find(w => w.week_number === currentWeek)?.title ?? null, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
     weeks: all.filter(w => isOpen(w, today)).map(w => ({ week_number: w.week_number, title: w.title })),
     members: members.map(m => ({ id: m.id, name: m.display_name, done: prog2.filter(p => p.user_id === m.id).map(p => p.day_index), lastTick: prog2.filter(p => p.user_id === m.id).map(p => p.done_at).sort().pop() || null, totalDone: Number(totals.find(t => t.user_id === m.id)?.n || 0) })),
@@ -109,10 +114,11 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
   const mine = (prog
    ? (await DB.prepare("SELECT week_index AS week_number,day_index FROM hefz_program_ticks WHERE user_id=? AND program_id=? AND item='memorize'").bind(user.id, prog.programId).all<{ week_number: number; day_index: number }>()).results
    : (await DB.prepare("SELECT week_number,day_index FROM hefz_plan_progress WHERE user_id=?").bind(user.id).all<{ week_number: number; day_index: number }>()).results) || [];
+  const vmap = prog ? await videosForWeeks(DB, prog.programId, all.filter(w => isOpen(w, today)).map(w => w.week_number), user.id) : new Map();   // open weeks only: locked weeks stay hidden
   const weeks = all.map(w => {
    const open = isOpen(w, today), done = new Set(mine.filter(p => p.week_number === w.week_number).map(p => p.day_index));
    const total = newDays(w).length, doneNew = newDays(w).filter(i => done.has(i)).length;
-   return { week_number: w.week_number, title: w.title, mushaf_page: w.mushaf_page, mushaf_page2: w.mushaf_page2, start_date: w.start_date, open, current: w.week_number === currentWeek, total, doneNew, days: open ? expandWeek(w, today, done) : [] };
+   return { week_number: w.week_number, title: w.title, mushaf_page: w.mushaf_page, mushaf_page2: w.mushaf_page2, start_date: w.start_date, open, current: w.week_number === currentWeek, total, doneNew, videos: open ? vmap.get(w.week_number) ?? [] : [], days: open ? expandWeek(w, today, done) : [] };
   });
   return Response.json({ today, currentWeek, program: progInfo, startsOn: prog && !dated.length ? jalaliLabel(prog.startDate) : null, weeks });
  },
