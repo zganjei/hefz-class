@@ -4,6 +4,9 @@ import { currentUser, jsonError } from "../../lib/auth.server";
 import { isIsoDate, stockholmToday, jalaliLabel } from "../../lib/plan.server";
 import { saturdayOnOrBefore, setClassWeek, programForClass } from "../../lib/program.server";
 import { canManageClass } from "../../lib/access.server";
+import * as XLSX from "xlsx";
+import type { ProgramWeek } from "../../lib/program-parse";
+import { programToRows, programFileName, summarize } from "../../lib/program-export";
 
 const clip = (v: unknown, max: number) => (typeof v === "string" || typeof v === "number" ? String(v).trim().slice(0, max) : "");
 const strList = (v: unknown, maxItems: number) => (Array.isArray(v) ? v : []).slice(0, maxItems).map(x => clip(x, 200)).filter(Boolean);
@@ -14,6 +17,24 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
   if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  const url = new URL(request.url), one = url.searchParams.get("id"), view = url.searchParams.get("view");
+  if (one || view) {   // admin only: one program's overview or its xlsx download
+   if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+   const p = await DB.prepare("SELECT id,name,created_at::text AS created_at FROM hefz_programs WHERE id=?").bind(one || "").first<{ id: string; name: string; created_at: string }>();
+   if (!p) return jsonError("برنامه پیدا نشد (شاید حذف شده؛ صفحه را تازه کنید).", 404);
+   const rows = (await DB.prepare("SELECT title,days FROM hefz_program_weeks WHERE program_id=? ORDER BY week_index").bind(p.id).all<{ title: string; days: unknown }>()).results || [];
+   const weeks: ProgramWeek[] = rows.map(r => { const d = typeof r.days === "string" ? JSON.parse(r.days) : r.days; return { title: r.title, days: Array.isArray(d) ? d : [] } as ProgramWeek; });
+   if (view === "download") {
+    if (!weeks.length) return jsonError("این برنامه خالی است و چیزی برای دانلود ندارد.", 409);
+    const ws = XLSX.utils.aoa_to_sheet(programToRows(weeks)); ws["!cols"] = [{ wch: 28 }, { wch: 8 }, { wch: 28 }, { wch: 36 }, { wch: 36 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "برنامه"); wb.Workbook = { Views: [{ RTL: true }] };
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const fname = programFileName(p.name) + ".xlsx";
+    return new Response(buf, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="program.xlsx"; filename*=UTF-8''${encodeURIComponent(fname)}`, "Cache-Control": "no-store" } });
+   }
+   const cls = (await DB.prepare("SELECT name FROM classes WHERE program_id=? ORDER BY name").bind(p.id).all<{ name: string }>()).results || [];
+   return Response.json({ id: p.id, name: p.name, created: p.created_at ? jalaliLabel(p.created_at.slice(0, 10)) : null, classes: cls.map(c => c.name), ...summarize(weeks) });
+  }
   const programs = (await DB.prepare("SELECT p.id,p.name,p.created_at::text AS created_at,(SELECT COUNT(*) FROM hefz_program_weeks w WHERE w.program_id=p.id) AS weeks FROM hefz_programs p ORDER BY p.created_at DESC").all<any>()).results || [];
   if (user.role === "teacher") return Response.json({ programs: programs.map(p => ({ id: p.id, name: p.name, weeks: Number(p.weeks) })) });   // teachers: names and week counts only
   const classes = (await DB.prepare("SELECT c.id,c.name,c.program_id,c.program_start::text AS program_start,(SELECT COUNT(*) FROM class_members m WHERE m.class_id=c.id) AS member_count FROM classes c ORDER BY c.name").all<any>()).results || [];
@@ -49,6 +70,19 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    const stored = Number((await DB.prepare("SELECT COUNT(*) AS n FROM hefz_program_weeks WHERE program_id=?").bind(id).first<{ n: number }>())?.n || 0);
    if (stored !== weeks.length) { await DB.prepare("DELETE FROM hefz_programs WHERE id=?").bind(id).run(); return jsonError(`ذخیره‌ی برنامه ناقص بود (${stored} از ${weeks.length} هفته) و برنامه ثبت نشد. دوباره امتحان کنید.`, 500); }
    return Response.json({ ok: true, id, name, weeks: stored }, { status: 201 });
+  }
+
+  if (body.action === "rename") {
+   const id = clip(body.id, 100), name = clip(body.name, 200).replace(/\s+/g, " ");
+   if (!id) return jsonError("شناسه لازم است.");
+   if (name.length < 2 || name.length > 80) return jsonError("نام برنامه باید بین ۲ تا ۸۰ حرف باشد.");
+   if (/[<>]/.test(name)) return jsonError("نام برنامه نباید شامل علامت‌های < یا > باشد.");
+   const cur = await DB.prepare("SELECT id FROM hefz_programs WHERE id=?").bind(id).first<{ id: string }>();
+   if (!cur) return jsonError("برنامه پیدا نشد (شاید حذف شده؛ صفحه را تازه کنید).", 404);
+   const dup = await DB.prepare("SELECT id FROM hefz_programs WHERE id<>? AND lower(name)=lower(?) LIMIT 1").bind(id, name).first<{ id: string }>();
+   if (dup) return jsonError("برنامه‌ای با این نام از قبل وجود دارد. نام دیگری انتخاب کنید.", 409);
+   await DB.prepare("UPDATE hefz_programs SET name=? WHERE id=?").bind(name, id).run();   // classes reference the program by id, so attachments are untouched
+   return Response.json({ ok: true, id, name });
   }
 
   if (body.action === "detach") {

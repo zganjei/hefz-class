@@ -5,7 +5,8 @@ import * as XLSX from "xlsx";
 import { parseProgramRows, suggestProgramName, type ParseResult } from "../lib/program-parse";
 
 type Program = { id: string; name: string; weeks: number };
-type Cls = { id: string; name: string; program_id: string | null; program_start: string | null; start_label: string | null; member_count: number };
+type ProgramInfo = { id: string; name: string; created: string | null; classes: string[]; weeks: number; firstTitle: string | null; lastTitle: string | null; firstNew: string | null; lastNew: string | null; newDays: number; classDays: number; restDays: number; empty: boolean };
+type Cls ={ id: string; name: string; program_id: string | null; program_start: string | null; start_label: string | null; member_count: number };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 async function call(method: "GET" | "POST", body?: unknown) {
   const r = await fetch("/api/programs", { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
@@ -51,6 +52,25 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
   const [blocked, setBlocked] = useState<string | null>(null);
   const detach = (id: string) => run(async () => { await call("POST", { action: "detach", id }); setBlocked(null); setOk("برنامه از کلاس‌ها جدا شد ✅ حالا می‌توانید حذفش کنید."); await load(); });
   const del = (id: string) => run(async () => { setBlocked(null); try { await call("POST", { action: "delete", id }); } catch (e: any) { if (e.code === "in_use") setBlocked(id); throw e; } setConfirmDel(null); setOk("برنامه حذف شد ✅"); await load(); });
+  const [editId, setEditId] = useState<string | null>(null), [editName, setEditName] = useState("");
+  const [infoId, setInfoId] = useState<string | null>(null), [info, setInfo] = useState<ProgramInfo | null>(null);
+  const rename = (id: string) => run(async () => {
+    const r = await call("POST", { action: "rename", id, name: editName });
+    setEditId(null); setOk(`نام برنامه به «${r.name}» تغییر کرد ✅`); await load();
+  });
+  const toggleInfo = async (id: string) => {
+    if (infoId === id) { setInfoId(null); return; }
+    setInfoId(id); setInfo(null);
+    try { const r = await fetch(`/api/programs?id=${encodeURIComponent(id)}`); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "خطا"); setInfo(d); }
+    catch (e: any) { setInfoId(null); setMsg(e.message); }
+  };
+  const download = (p: Program) => run(async () => {
+    const r = await fetch(`/api/programs?id=${encodeURIComponent(p.id)}&view=download`);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || "دانلود ناموفق بود."); }
+    const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+    a.href = url; a.download = `${p.name.replace(/[\\/:*?"<>|]/g, " ").trim() || "برنامه"}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setOk(`فایل برنامهٔ «${p.name}» دانلود شد ✅`);
+  });
   const first = prev?.weeks[0], last = prev?.weeks[prev.weeks.length - 1];
 
   return <div className="adm-stack">
@@ -64,6 +84,33 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="adm-row"><b>{p.name}</b><small>{p.weeks ? `${fa(p.weeks)} هفته` : "خالی، حذف و دوباره بسازید"}</small>
         {confirmDel !== p.id && <button type="button" className="adm-btn danger sm" onClick={() => setConfirmDel(p.id)}>حذف</button>}
       </div>
+      {confirmDel !== p.id && <div className="adm-actions">
+        <button type="button" className="adm-btn quiet sm" aria-expanded={infoId === p.id} onClick={() => void toggleInfo(p.id)}>اطلاعات برنامه</button>
+        <button type="button" className="adm-btn quiet sm" disabled={busy} onClick={() => { setEditId(p.id); setEditName(p.name); }}>تغییر نام</button>
+        <button type="button" className="adm-btn quiet sm" disabled={busy || !p.weeks} onClick={() => void download(p)}>دانلود</button>
+      </div>}
+      {editId === p.id && <div className="adm-note">
+        <label>نام جدید<input value={editName} maxLength={80} onChange={e => setEditName(e.target.value)} /></label>
+        <div className="adm-actions">
+          <button type="button" className="adm-btn" disabled={busy || !editName.trim() || editName.trim() === p.name} onClick={() => void rename(p.id)}>ذخیره</button>
+          <button type="button" className="adm-btn quiet" disabled={busy} onClick={() => setEditId(null)}>انصراف</button>
+        </div>
+      </div>}
+      {infoId === p.id && <div className="adm-note">
+        {!info || info.id !== p.id ? <small>در حال بارگذاری…</small> : <>
+          <b>{info.name}</b>
+          {info.empty && <small className="error-msg">این برنامه خالی است (هیچ هفته‌ای ندارد). حذف و دوباره بسازید.</small>}
+          <span>تعداد هفته‌ها: {fa(info.weeks)}</span>
+          {!info.empty && <>
+            <span>روزهای حفظ جدید: {fa(info.newDays)} · روزهای کلاس بدون حفظ: {fa(info.classDays)} · روزهای استراحت: {fa(info.restDays)}</span>
+            <span>اولین حفظ: {info.firstNew ?? "—"}</span>
+            <span>آخرین حفظ: {info.lastNew ?? "—"}</span>
+            <span>هفتهٔ اول: {info.firstTitle} · هفتهٔ آخر: {info.lastTitle}</span>
+          </>}
+          <span>کلاس‌های متصل: {info.classes.length ? info.classes.join("، ") : "هیچ کلاسی"}</span>
+          {info.created && <span>تاریخ ساخت: {info.created}</span>}
+        </>}
+      </div>}
       {confirmDel === p.id && <Confirm text={`برنامهٔ «${p.name}» حذف شود؟`} yes="بله، حذف شود" busy={busy} onYes={() => void del(p.id)} onNo={() => setConfirmDel(null)} />}
       {blocked === p.id && <button type="button" className="adm-btn quiet" disabled={busy} onClick={() => void detach(p.id)}>جدا کردن از کلاس‌ها</button>}
     </div>)}
