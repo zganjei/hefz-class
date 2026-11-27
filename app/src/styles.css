@@ -380,3 +380,10 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .m-app .simple-row{border-top:1px solid var(--bd-efede5);padding:10px 0;align-items:center}
 .m-app .error-msg{border-radius:12px}
 .m-app .m-content *{min-width:0}
+/* ---- قبول/رد: one tap cycles ثبت‌نشده → قبول → رد (48px target). ---- */
+.pm-row .pm-btn{min-width:92px;min-height:48px;padding:0 14px;border-radius:12px;font:inherit;font-size:15px;font-weight:700;border:1px solid var(--bd-d9d6c8);background:var(--bg-fff);color:var(--tx-6f7f75)}
+.pm-row .pm-btn.pass{background:#174b3b;border-color:#174b3b;color:#fff}
+.pm-row .pm-btn.fail{background:#f7eae5;border-color:#d9b2a8;color:#8a2f22}
+.pm-note{flex-basis:100%;display:grid;gap:8px}
+.pm-chips{display:flex;flex-wrap:wrap;gap:8px}
+.pm-chips .adm-btn{width:auto}
