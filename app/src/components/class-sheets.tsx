@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Notice } from "./notice";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -38,7 +39,7 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
       {c.hasProgram && c.positionNote && <span>یادداشت جایگاه: {c.positionNote}</span>}
     </button>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </section>;
 }
 
@@ -97,7 +98,7 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
       <p className="plan-hint">این‌ها در شمارش فعال‌ها نیستند. سابقه‌شان می‌ماند و هر وقت برگردند می‌توانید ثبت کنید.</p>
       {d.left.map((l: any) => <Learner key={l.key} l={l} left classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     </>}
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </section>;
 }
 

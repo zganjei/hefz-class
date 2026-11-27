@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Notice } from "./notice";
 
 type Cls = { id: string; name: string };
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
@@ -21,7 +22,7 @@ export function Exams({ user, classes }: { user: User; classes: Cls[] }) {
     <h2>آزمون‌ها</h2>
     {open ? (staff ? <StaffExam id={open} back={() => setOpen("")} run={run} busy={busy} /> : <TakeExam id={open} back={() => setOpen("")} run={run} busy={busy} />)
       : (staff ? <StaffList classes={classes} openExam={setOpen} run={run} busy={busy} /> : <LearnerList openExam={setOpen} run={run} />)}
-    {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
+    <Notice msg={msg} />
   </section>;
 }
 
