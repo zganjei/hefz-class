@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
-type Week = { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
+type Week = { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 async function call(path: string, body?: unknown, method = "GET") {
   const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
@@ -10,13 +10,13 @@ async function call(path: string, body?: unknown, method = "GET") {
   if (!r.ok) throw new Error(d.error || "خطا");
   return d;
 }
-const pageLabel = (w: { mushaf_page: number; mushaf_page2: number | null }) => `صفحهٔ ${fa(w.mushaf_page)}${w.mushaf_page2 ? " و " + fa(w.mushaf_page2) : ""} قرآن`;
+const pageLabel = (w: { mushaf_page: number | null; mushaf_page2: number | null }) => w.mushaf_page ? `صفحهٔ ${fa(w.mushaf_page)}${w.mushaf_page2 ? " و " + fa(w.mushaf_page2) : ""} قرآن` : "";
 
 type Tadabbur = { author: string; series: string; url: string; note?: string; summaries: { summary: string; url: string }[] };
 type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; links?: (string | null)[]; tadabbur?: (Tadabbur | null)[]; audio?: (AudioInfo | null)[]; translation?: (TranslationInfo | null)[] };
 type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
 type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
-type Today = { week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
+type Today = { program?: { id: string; name: string } | null; week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
 type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
 
 function VerseAudio({ info }: { info: AudioInfo }) {
@@ -51,7 +51,7 @@ function TodayChecklist() {
     if (!data?.week || !data.day || data.day.future) return;
     const next = !it.done;
     setData(d => d && { ...d, items: d.items.map(x => x.key === it.key ? { ...x, done: next } : x) });
-    try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
+    try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next, programId: data.program?.id ?? null }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
   };
   const show = async (k: string) => {
     const range = k.slice(k.indexOf("|") + 1);
@@ -64,7 +64,7 @@ function TodayChecklist() {
   const day = data.day;
   const doneN = data.items.filter(i => i.done).length;
   return <article className="plan-week current today-card">
-    <div className="plan-week-head static"><div><b>{day.isToday ? "برنامهٔ امروز" : day.future ? "برنامهٔ روز آینده" : "برنامهٔ روز گذشته"} · {day.name} {day.jdate}</b><small>هفتهٔ {fa(data.week.week_number)} · {data.week.title} · {fa(doneN)} از {fa(data.items.length)}</small></div></div>
+    <div className="plan-week-head static"><div><b>{day.isToday ? "برنامهٔ امروز" : day.future ? "برنامهٔ روز آینده" : "برنامهٔ روز گذشته"} · {day.name} {day.jdate}</b><small>{data.program ? data.program.name + " · " : ""}هفتهٔ {fa(data.week.week_number)} · {data.week.title} · {fa(doneN)} از {fa(data.items.length)}</small></div></div>
     <div className="plan-toolbar" role="navigation" aria-label="جابه‌جایی بین روزها">
       <button type="button" className="plan-more" disabled={!day.prev} onClick={() => day.prev && setDate(day.prev)}>→ روز قبل</button>
       <button type="button" className="plan-more" disabled={day.isToday} onClick={() => setDate(null)}>امروز</button>
@@ -104,14 +104,14 @@ function TodayChecklist() {
 }
 
 function LearnerPlan() {
-  const [showAll, setShowAll] = useState(false), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false), [program, setProgram] = useState<{ id: string; name: string } | null>(null), [startsOn, setStartsOn] = useState<string | null>(null), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
-    try { const d = await call("/api/plan"); setWeeks(d.weeks); setOpenWeek(o => o ?? d.currentWeek ?? null); setMsg(""); } catch (e: any) { setMsg(e.message); } finally { setLoading(false); }
+    try { const d = await call("/api/plan"); setProgram(d.program ?? null); setStartsOn(d.startsOn ?? null); setWeeks(d.weeks); setOpenWeek(o => o ?? d.currentWeek ?? null); setMsg(""); } catch (e: any) { setMsg(e.message); } finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
   const tick = async (w: Week, d: Day) => {
     setWeeks(ws => ws.map(x => x.week_number !== w.week_number ? x : { ...x, days: x.days.map(y => y.index === d.index ? { ...y, done: !y.done } : y), doneNew: x.doneNew + (d.new ? (d.done ? -1 : 1) : 0) }));
-    try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
+    try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done, programId: program?.id ?? null }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
   };
   const curN = weeks.find(x => x.current)?.week_number ?? -1;
   const visible = weeks.filter(w => w.open && (showAll || w.week_number >= curN - 3 || curN < 0));
@@ -120,6 +120,8 @@ function LearnerPlan() {
   return <section className="plan-wrap">
     <TodayChecklist />
     {msg && <p className="error-msg">{msg}</p>}
+    {program && <p className="plan-hint">برنامهٔ کلاس شما: <b>{program.name}</b></p>}
+    {startsOn && <p className="empty-state">برنامهٔ کلاس شما از {startsOn} شروع می‌شود.</p>}
     {!weeks.length && <p className="empty-state">برنامه‌ای ثبت نشده است.</p>}
     {[...visible].reverse().map(w => {
       const isOpen = openWeek === w.week_number && w.open, pct = w.total ? Math.round(100 * w.doneNew / w.total) : 0;
@@ -147,9 +149,9 @@ function LearnerPlan() {
   </section>;
 }
 
-type Report = { currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
+type Report = { program?: { id: string; name: string } | null; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
 type RosterRow = { name: string; registered: boolean; phone: string | null; email: string | null; nationalId: string | null; code: string | null; level: string | null; education: string | null; hifzAmount: string | null; tadabburAmount: string | null; notes: string | null; hefz: { daysDone: number }; scores: { week: number; weekTitle: string; lesson: string; score: number; max: number; passed: boolean }[] };
-type Roster = { className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; sessionsHeld: number | null; rows: RosterRow[] };
+type Roster = { program?: { id: string; name: string } | null; className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; sessionsHeld: number | null; rows: RosterRow[] };
 function ClassRoster({ classId }: { classId: string }) {
   const [r, setR] = useState<Roster | null>(null), [msg, setMsg] = useState("");
   useEffect(() => { if (!classId) return; setR(null); call(`/api/plan?classId=${encodeURIComponent(classId)}&roster=1`).then(d => { setR(d); setMsg(""); }).catch(e => setMsg(e.message)); }, [classId]);
@@ -159,6 +161,7 @@ function ClassRoster({ classId }: { classId: string }) {
   return <article className="plan-week current roster">
     <div className="plan-week-head static"><div><b>اطلاعات کلاس · {r.className}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
     <div className="roster-meta">
+      {r.program && <p><i>برنامهٔ کلاس:</i> {r.program.name}</p>}
       <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : "هنوز هفته‌ای باز نشده است"}</p>
       <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
       <p><i>تعداد قرآن‌آموزان:</i> {fa(r.rows.length)}</p>
@@ -190,6 +193,7 @@ function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
       {data && <label>هفته<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}
+    {data?.program && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b> · {data.currentWeek ? `الان در هفتهٔ ${fa(data.currentWeek)}${data.currentWeekTitle ? " · " + data.currentWeekTitle : ""}` : "برنامه به پایان رسیده است"}</p>}
     {data && <article className="plan-week current"><div className="plan-week-head static"><div><b>هفتهٔ {fa(data.week.week_number)} · {data.week.title}</b><small>{pageLabel(data.week)}</small></div></div>
       <div className="m-members">
         {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length, all = doneNew === data.week.newDays.length; return <div key={m.id} className="m-member">
