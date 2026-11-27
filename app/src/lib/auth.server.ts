@@ -1,5 +1,4 @@
 import { bindings } from "./bindings.server";
-import { canManageClass } from "./access.server";
 import { applicationForEmail } from "./applications.server";
 import { normalizePhone } from "./phone-auth.server";
 
@@ -209,17 +208,14 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
 
 export async function createInvitation(request: Request, body: Record<string, unknown>) {
   const user = await currentUser(request);
-  if (!user || !["admin","teacher"].includes(user.role)) return jsonError("دسترسی مجاز نیست.",403);
+  if (user?.role === "teacher") return jsonError("فقط مدیر می‌تواند دعوت‌نامه بسازد.",403);
+  if (!user || user.role !== "admin") return jsonError("دسترسی مجاز نیست.",403);
   const { DB } = bindings();
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const role = body.role;
   const classId = typeof body.classId === "string" ? body.classId : null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["teacher","memorizer"].includes(String(role))) return jsonError("ایمیل یا نقش نامعتبر است.");
-  if (user.role === "teacher" && role !== "memorizer") return jsonError("استاد فقط می‌تواند حافظ دعوت کند.",403);
-  if (classId) {
-    if (user.role === "teacher" && !(await canManageClass(DB!, user, classId))) return jsonError("کلاس متعلق به شما نیست.",403);
-    if (user.role === "admin" && !(await DB!.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first())) return jsonError("کلاس پیدا نشد.",404);
-  }
+  if (classId && !(await DB!.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first())) return jsonError("کلاس پیدا نشد.",404);
   const raw = b64(crypto.getRandomValues(new Uint8Array(32)));
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256",encoder.encode(raw)));
   await DB!.prepare("INSERT INTO invitations (id,email,role,class_id,token_hash,expires_at,created_by) VALUES (?,?,?,?,?,?,?)")
