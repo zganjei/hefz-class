@@ -25,7 +25,7 @@ export function StaffAccounts() {
       <h3>ساخت حساب برای همکار</h3>
       <label>نام و نام خانوادگی<input value={name} onChange={e => setName(e.target.value)} /></label>
       <label>شماره‌ی همراه<input dir="ltr" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="09123456789" /></label>
-      <label>نقش<select value={role} onChange={e => setRole(e.target.value)}><option value="teacher">معلم</option><option value="admin">مدیر</option></select></label>
+      <label>نقش<select value={role} onChange={e => setRole(e.target.value)}><option value="teacher">استاد</option><option value="admin">مدیر</option></select></label>
       <button className="primary-wide" disabled={busy || !name || !phone} onClick={() => void run(async () => { const r = await post("/api/staff", { name, phone, role }); setMade({ phone: r.phone, password: r.password }); setName(""); setPhone(""); })}>ساخت حساب و گذرواژه‌ی تصادفی</button>
       {made && <div className="invite-result"><b>گذرواژه فقط همین یک بار نمایش داده می‌شود:</b><span dir="ltr">{made.phone} / {made.password}</span><button onClick={() => void navigator.clipboard.writeText(`${made.phone}\n${made.password}`)}>کپی</button></div>}
     </div>

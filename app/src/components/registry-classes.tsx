@@ -36,7 +36,7 @@ export function RegistryClasses({ onCreated }: { onCreated?: () => void }) {
     <MembersPanel />
     <div className="report-form">
       <h3>حذف کلاس خالی</h3>
-      <p className="plan-hint">فقط کلاسی که عضو، معلم، آزمون، برنامه یا گزارشی ندارد (جز عضویت خودِ شما) حذف می‌شود. اول توضیح می‌دهم چه چیزی برداشته می‌شود و بعد با تأیید دوم حذف می‌کنم.</p>
+      <p className="plan-hint">فقط کلاسی که عضو، استاد، آزمون، برنامه یا گزارشی ندارد (جز عضویت خودِ شما) حذف می‌شود. اول توضیح می‌دهم چه چیزی برداشته می‌شود و بعد با تأیید دوم حذف می‌کنم.</p>
       {!all && <button className="secondary-action" disabled={busy} onClick={() => void run(async () => setAll((await call("GET", "/api/registry-classes?classes=1")).classes))}>نمایش کلاس‌ها</button>}
       {all && !all.some(c => c.id === activeId) && dmsg && <div ref={boxRef}>{dmsg.includes("✅") ? <p className="hint">{dmsg}</p> : <p className="error-msg">{dmsg}</p>}</div>}
       {all?.map(c => <div key={c.id}>

@@ -194,7 +194,7 @@ export async function createInvitation(request: Request, body: Record<string, un
   const role = body.role;
   const classId = typeof body.classId === "string" ? body.classId : null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["teacher","memorizer"].includes(String(role))) return jsonError("ایمیل یا نقش نامعتبر است.");
-  if (user.role === "teacher" && role !== "memorizer") return jsonError("معلم فقط می‌تواند حافظ دعوت کند.",403);
+  if (user.role === "teacher" && role !== "memorizer") return jsonError("استاد فقط می‌تواند حافظ دعوت کند.",403);
   if (classId) {
     if (user.role === "teacher" && !(await canManageClass(DB!, user, classId))) return jsonError("کلاس متعلق به شما نیست.",403);
     if (user.role === "admin" && !(await DB!.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first())) return jsonError("کلاس پیدا نشد.",404);

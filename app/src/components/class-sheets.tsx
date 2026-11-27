@@ -3,6 +3,7 @@ import { Notice } from "./notice";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+const composeName = (base: string, year: string) => base.trim().replace(/\s+/g, " ") + (year.trim() ? " ورودی " + fa(year.trim()) : "");
 const sc = (s: number, m: number | null) => fa(s) + (m ? "/" + fa(m) : "");
 
 async function call(method: "GET" | "POST", path: string, body?: unknown) {
@@ -32,7 +33,7 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards?.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => setOpen(c.id)}>
       <b>{c.name}{c.term ? " · " + c.term : ""}</b>
-      <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · معلم: " + c.teacher : ""}</span>
+      <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · استاد: " + c.teacher : ""}</span>
       {c.hasProgram
         ? <span>برنامه: {c.program}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده"}</span>
         : <span>جایگاه: {c.positionNote || "ثبت نشده"} · برنامه‌ای به این کلاس وصل نیست</span>}
@@ -48,7 +49,8 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
   const [programs, setPrograms] = useState<{ id: string; name: string; weeks: number }[] | null>(null), [pick, setPick] = useState(""), [pickWeek, setPickWeek] = useState(""), [confirm, setConfirm] = useState<"" | "change" | "remove">("");
   const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
-  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); };
+  const [nm, setNm] = useState(""), [yr, setYr] = useState("");
+  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); };
   useEffect(() => { void run(load); }, [id]);
   useEffect(() => { call("GET", "/api/programs").then(x => setPrograms(x.programs || [])).catch(() => setPrograms([])); }, []);
   if (!d) return <section className="panel"><button className="secondary-action" onClick={back}>← کلاس‌ها</button>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
@@ -86,26 +88,33 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
         </div>
       : <p className="plan-hint">{user.role === "admin" ? "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید." : "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید."}</p>}
     <div className="report-form">
+      <h3>نام و سال ورودی کلاس</h3>
+      <label>نام کلاس<input value={nm} onChange={e => setNm(e.target.value)} maxLength={80} /></label>
+      <label>سال ورودی (اختیاری)<input inputMode="numeric" value={yr} onChange={e => setYr(e.target.value.replace(/[^0-9۰-۹]/g, "").slice(0, 4))} placeholder="مثلاً ۱۴۰۴" /></label>
+      <p className="plan-hint">نام نهایی: {composeName(nm, yr) || "—"}</p>
+      <button className="secondary-action" disabled={busy || !nm.trim() || composeName(nm, yr) === d.name} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, name: composeName(nm, yr), term: d.term, positionNote: d.positionNote }); await load(); setMsg("نام کلاس ذخیره شد ✅"); })}>ذخیره‌ی نام و سال ورودی</button>
+    </div>
+    <div className="report-form">
       <label>ترم یا دوره<input value={term} onChange={e => setTerm(e.target.value)} /></label>
       <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
       <button className="secondary-action" disabled={busy || (term === d.term && pos === d.positionNote)} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, term, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی ترم و جایگاه</button>
     </div>
     <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
-    {d.active.map((l: any) => <Learner key={l.key} l={l} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+    {d.active.map((l: any) => <Learner say={setMsg} key={l.key} l={l} className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
     {d.left.length > 0 && <>
       <h3 className="sheet-h">سابقه (ترک‌کرده‌ها)</h3>
       <p className="plan-hint">این‌ها در شمارش فعال‌ها نیستند. سابقه‌شان می‌ماند و هر وقت برگردند می‌توانید ثبت کنید.</p>
-      {d.left.map((l: any) => <Learner key={l.key} l={l} left classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+      {d.left.map((l: any) => <Learner say={setMsg} key={l.key} l={l} left className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     </>}
     <Notice msg={msg} />
   </section>;
 }
 
-function Learner({ l, left, classTerm, classPos, classId, open, toggle, run, busy, reload }: { l: any; left?: boolean; classTerm: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
+function Learner({ say, l, left, className, classTerm, classPos, classId, open, toggle, run, busy, reload }: { say: (m: string) => void; l: any; left?: boolean; className: string; classTerm: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
   const [title, setTitle] = useState(""), [score, setScore] = useState(""), [max, setMax] = useState(""), [date, setDate] = useState(""), [note, setNote] = useState("");
   const all = l.digital.length + l.manual.length;
-  const [lt, setLt] = useState(classTerm), [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false);
+  const [lt, setLt] = useState(classTerm), [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false), [rm, setRm] = useState(false);
   const last = l.history.filter((h: any) => h.classId === classId).slice(-1)[0];
   return <article className="sheet-learner">
     <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{left && last ? "ترک: " + last.date : all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
@@ -136,6 +145,14 @@ function Learner({ l, left, classTerm, classPos, classId, open, toggle, run, bus
                 <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "leave", classId, person: l.key, term: lt, position: lp, reason: lr, date: ld }); setConfirm(false); setLr(""); await reload(); })}>بله، ثبت شود</button>
                 <button className="secondary-action" onClick={() => setConfirm(false)}>انصراف</button></>}
           </div>}
+      <div className="report-form">
+        <h4>حذف از کلاس</h4>
+        <p className="plan-hint">اگر این قرآن‌آموز هرگز در این کلاس نبوده (یا اشتباهی اضافه شده)، از فهرست همین کلاس برداشته می‌شود. حساب، نمره‌ها و سابقه‌اش پاک نمی‌شود؛ برای کسی که کلاس را ترک کرده، «ترک کرد» را بزنید.</p>
+        {!rm ? <button className="secondary-action" disabled={busy} onClick={() => setRm(true)}>حذف از کلاس…</button>
+          : <><p className="plan-hint">«{l.name}» از کلاس «{className}» برداشته شود؟ حساب و سابقه‌ی او پاک نمی‌شود.</p>
+            <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { const d = await call("POST", "/api/class-sheet", { action: "remove-member", classId, person: l.key }); setRm(false); await reload(); say(`«${d.removed}» از کلاس «${d.className}» برداشته شد ✅`); })}>بله، از کلاس برداشته شود</button>
+            <button className="secondary-action" onClick={() => setRm(false)}>انصراف</button></>}
+      </div>
       <h4>نمره‌ها</h4>
       {l.digital.map((s: any, i: number) => <div className="simple-row" key={"d" + i}><b>{s.title}</b><span>{sc(s.score, s.max)} · آزمون سامانه</span></div>)}
       {l.manual.map((s: any) => <div className="simple-row" key={s.id}><b>{s.title}</b><span>{sc(s.score, s.max)}{s.date ? " · " + s.date : ""}{s.note ? " · " + s.note : ""}</span>

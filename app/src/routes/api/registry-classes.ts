@@ -41,7 +41,7 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   const manualScores = await c("SELECT COUNT(*) AS n FROM class_manual_scores WHERE class_id=?", classId);
   const blockers: string[] = [];
   if (otherMembers) blockers.push(`${otherMembers} عضو (غیر از شما)`);
-  if (otherTeachers) blockers.push("معلم دارد");
+  if (otherTeachers) blockers.push("استاد دارد");
   if (exams) blockers.push(`${exams} آزمون`);
   if (assignments) blockers.push(`${assignments} برنامه‌ی ثبت‌شده`);
   if (reports) blockers.push(`${reports} گزارش`);
