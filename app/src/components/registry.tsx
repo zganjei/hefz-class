@@ -5,7 +5,7 @@ type Kind = "student" | "teacher" | "supporter";
 type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null };
 
 const KIND_FA: Record<Kind, string> = { student: "قرآن‌آموزان", teacher: "اساتید", supporter: "پشتیبان‌ها" };
-const MEMB_LABEL: Record<string, string> = { in_class: "در کلاس ✓", to_add: "آماده‌ی ثبت در کلاس", no_account: "هنوز وارد نشده", no_class: "کلاس نامشخص" };
+const MEMB_LABEL: Record<string, string> = { in_class: "در کلاس ✓", to_add: "آماده‌ی ثبت در کلاس", no_account: "هنوز وارد نشده", no_class: "کلاس نامشخص", removed: "از کلاس برداشته شد" };
 const LABELS: Record<string, string> = { full_name: "نام و نام خانوادگی", code: "کد", class_name: "کلاس", teacher_name: "استاد", class_day: "روز کلاس", class_time: "ساعت کلاس", level: "سطح / محدوده", education: "تحصیلات", hifz_amount: "میزان حفظ", tadabbur_amount: "میزان تدبر", phone: "شماره تماس", bale_number: "شماره بله", bale_id: "آیدی بله", email: "ایمیل", resume: "رزومه", notes: "یادداشت", status: "وضعیت" };
 const FORM_FIELDS: Record<Kind, string[]> = {
   student: ["full_name", "code", "class_name", "teacher_name", "class_day", "class_time", "level", "education", "hifz_amount", "tadabbur_amount", "phone", "bale_number", "bale_id", "email", "notes"],

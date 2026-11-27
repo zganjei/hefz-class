@@ -12,7 +12,7 @@ const strList = (v: unknown, maxItems: number) => (Array.isArray(v) ? v : []).sl
 export const Route = createFileRoute("/api/programs")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا معلم است.", 403);
+  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const programs = (await DB.prepare("SELECT p.id,p.name,p.created_at::text AS created_at,(SELECT COUNT(*) FROM hefz_program_weeks w WHERE w.program_id=p.id) AS weeks FROM hefz_programs p ORDER BY p.created_at DESC").all<any>()).results || [];
   if (user.role === "teacher") return Response.json({ programs: programs.map(p => ({ id: p.id, name: p.name, weeks: Number(p.weeks) })) });   // teachers: names and week counts only
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا معلم است.", 403);
+  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, any> | null;
   if (!body) return jsonError("درخواست نامعتبر است.");

@@ -13,7 +13,7 @@ export const Route=createFileRoute("/api/assignments")({server:{handlers:{
   return Response.json({assignments:result.results});
  },
  POST:async({request})=>{
-  const user=await currentUser(request);if(!user||!["admin","teacher"].includes(user.role))return jsonError("فقط معلم یا مدیر می‌تواند برنامه تعیین کند.",403);
+  const user=await currentUser(request);if(!user||!["admin","teacher"].includes(user.role))return jsonError("فقط استاد یا مدیر می‌تواند برنامه تعیین کند.",403);
   const body=await request.json().catch(()=>null) as Record<string,unknown>|null;
   const classId=typeof body?.classId==="string"?body.classId:"",title=typeof body?.title==="string"?body.title.trim().slice(0,120):"",surah=typeof body?.surah==="string"?body.surah.trim().slice(0,80):"";
   const from=Number(body?.fromAyah),to=Number(body?.toAyah),due=typeof body?.dueDate==="string"?body.dueDate:null,notes=typeof body?.instructions==="string"?body.instructions.slice(0,1000):"";

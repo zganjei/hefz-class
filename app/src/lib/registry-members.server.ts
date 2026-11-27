@@ -35,6 +35,7 @@ export async function enrollFromRegistry(DB: DB, user: { id: string; role?: stri
     let added = 0;
     for (const s of students) {
       const cid = classes.get(normClassName(s.class_name)); if (!cid) continue;
+      if (await DB.prepare("SELECT 1 AS ok FROM class_removals WHERE class_id=? AND (registry_id=? OR user_id=?)").bind(cid, s.id, user.id).first()) continue; // a teacher took this person out of the class
       const r = await DB.prepare("INSERT INTO class_members (class_id,user_id) VALUES (?,?) ON CONFLICT DO NOTHING").bind(cid, user.id).run();
       if ((r?.meta?.changes ?? r?.rowCount ?? 0) > 0) added++;
     }
@@ -42,7 +43,7 @@ export async function enrollFromRegistry(DB: DB, user: { id: string; role?: stri
   } catch { return 0; } // never block a login
 }
 
-export type MemberStatus = "in_class" | "to_add" | "no_account" | "no_class";
+export type MemberStatus = "in_class" | "to_add" | "no_account" | "no_class" | "removed";
 /** Per active registry student: status + the account it matched. Used for the admin preview/confirm and the per-row badge. */
 export async function registryMemberPlan(DB: DB) {
   const students = await activeStudents(DB);
@@ -51,12 +52,14 @@ export async function registryMemberPlan(DB: DB) {
   const byPhone = new Map<string, string>(), byEmail = new Map<string, string>();
   for (const u of users) { const t = tail10(u.phone); if (t && !byPhone.has(t)) byPhone.set(t, u.id); const e = normEmail(u.email); if (e && !e.endsWith("@phone.invalid") && !byEmail.has(e)) byEmail.set(e, u.id); }
   const members = new Set(((await DB.prepare("SELECT class_id,user_id FROM class_members").all()).results || []).map((m: any) => m.class_id + "|" + m.user_id));
+  const removals = new Set<string>(); for (const r of ((await DB.prepare("SELECT class_id,registry_id,user_id FROM class_removals").all()).results || []) as any[]) { if (r.registry_id) removals.add(r.class_id + "|r|" + r.registry_id); if (r.user_id) removals.add(r.class_id + "|u|" + r.user_id); }
   const status: Record<string, MemberStatus> = {}; const toAdd: { classId: string; userId: string }[] = [];
   const missingClasses = new Map<string, number>();
   for (const s of students) {
     const cid = classes.get(normClassName(s.class_name));
     if (!cid) { status[s.id] = "no_class"; const n = String(s.class_name || "").replace(/\s+/g, " ").trim() || "(بدون کلاس)"; missingClasses.set(n, (missingClasses.get(n) || 0) + 1); continue; }
     const uid = (tail10(s.phone) && byPhone.get(tail10(s.phone))) || (normEmail(s.email) && byEmail.get(normEmail(s.email))) || "";
+    if (removals.has(cid + "|r|" + s.id) || (uid && removals.has(cid + "|u|" + uid))) { status[s.id] = "removed"; continue; }
     if (!uid) { status[s.id] = "no_account"; continue; }
     if (members.has(cid + "|" + uid)) { status[s.id] = "in_class"; continue; }
     status[s.id] = "to_add"; toAdd.push({ classId: cid, userId: uid });

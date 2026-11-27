@@ -4,6 +4,7 @@ import { currentUser, jsonError } from "../../lib/auth.server";
 import { TEACHES_CLASS_SQL, canManageClass } from "../../lib/access.server";
 import { stockholmToday } from "../../lib/plan.server";
 import { programForClass, positionOf, setClassWeek } from "../../lib/program.server";
+import { normClassName } from "../../lib/class-name";
 import { classPeople, personHistory, registryStudents, type Person } from "../../lib/class-people.server";
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
@@ -70,8 +71,29 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
 
   if (action === "update-class") {
+   if (body.name !== undefined) {   // rename (the entry year lives in the name, e.g. «… ورودی ۱۴۰۴»); registry students written with the OLD exact name follow the class so the roster and login enrolment keep matching
+    const name = clip(body.name, 100).replace(/\s+/g, " ");
+    if (!name) return jsonError("نام کلاس را بنویسید.");
+    const cur = await DB.prepare("SELECT name FROM classes WHERE id=?").bind(classId).first<{ name: string }>();
+    if (!cur) return jsonError("کلاس پیدا نشد.", 404);
+    if (cur.name !== name) {
+     const key = normClassName(name), others = ((await DB.prepare("SELECT name FROM classes WHERE id<>?").bind(classId).all<{ name: string }>()).results || []);
+     if (others.some(o => normClassName(o.name) === key)) return jsonError("کلاس دیگری با همین نام هست؛ نام دیگری انتخاب کنید.", 409);
+     const oldKey = normClassName(cur.name);
+     await DB.prepare("UPDATE classes SET name=? WHERE id=?").bind(name, classId).run();
+     if (oldKey) for (const r of ((await DB.prepare("SELECT id,class_name FROM registry_people WHERE kind='student' AND class_name IS NOT NULL").all<{ id: string; class_name: string }>()).results || [])) if (normClassName(r.class_name) === oldKey) await DB.prepare("UPDATE registry_people SET class_name=? WHERE id=?").bind(name, r.id).run();
+    }
+   }
    await DB.prepare("UPDATE classes SET term=?,position_note=? WHERE id=?").bind(clip(body.term, 80) || null, clip(body.positionNote, 300) || null, classId).run();
    return Response.json({ ok: true });
+  }
+
+  if (action === "remove-member") {   // detach only: the account, scores, ticks and history stay; the person just stops being in THIS class
+   const cp = await classPeople(DB, classId), p = cp?.people.find(x => x.key === clip(body.person, 100));
+   if (!cp || !p) return jsonError("این قرآن‌آموز در این کلاس نیست.", 404);
+   await DB.prepare("INSERT INTO class_removals(id,class_id,registry_id,user_id,person_name,removed_by) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(), classId, p.registryId, p.userId, p.name, user.id).run();
+   if (p.userId) await DB.prepare("DELETE FROM class_members WHERE class_id=? AND user_id=?").bind(classId, p.userId).run();
+   return Response.json({ ok: true, removed: p.name, className: cp.cls.name });
   }
 
   if (action === "set-position") {   // the class's REAL week in its program: shifts the program start so that today falls in that week

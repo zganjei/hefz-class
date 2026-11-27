@@ -34,7 +34,9 @@ export async function classPeople(DB: DB, classId: string, registry?: any[]): Pr
     if (r) used.add(r.id);
     people.push({ key: r ? "r:" + r.id : "u:" + u.id, registryId: r?.id ?? null, userId: u.id, name: u.display_name, registered: true, phone: u.phone || r?.phone || null, email: u.email || null, code: r?.code || null, level: r?.level || null, education: r?.education || null, hifzAmount: r?.hifz_amount || null, tadabburAmount: r?.tadabbur_amount || null, notes: r?.notes || null, status: "active" });
   }
-  for (const r of reg) if (!used.has(r.id)) people.push({ key: "r:" + r.id, registryId: r.id, userId: null, name: r.full_name, registered: false, phone: r.phone || null, email: null, code: r.code || null, level: r.level || null, education: r.education || null, hifzAmount: r.hifz_amount || null, tadabburAmount: r.tadabbur_amount || null, notes: r.notes || null, status: "active" });
+  // Registry students a teacher removed from this class stay out (only an explicit invite/join makes them a member again).
+  const removed = new Set(((await DB.prepare("SELECT registry_id FROM class_removals WHERE class_id=? AND registry_id IS NOT NULL").bind(classId).all<any>()).results || []).map((x: any) => x.registry_id as string));
+  for (const r of reg) if (!used.has(r.id) && !removed.has(r.id)) people.push({ key: "r:" + r.id, registryId: r.id, userId: null, name: r.full_name, registered: false, phone: r.phone || null, email: null, code: r.code || null, level: r.level || null, education: r.education || null, hifzAmount: r.hifz_amount || null, tadabburAmount: r.tadabbur_amount || null, notes: r.notes || null, status: "active" });
   // Left/returned: the last event of this class decides. Matching is by registry person or site user.
   const ev = (await DB.prepare("SELECT registry_id,user_id,event FROM learner_history WHERE class_id=? ORDER BY created_at, id").bind(classId).all<any>()).results || [];
   for (const p of people) { const mine = ev.filter(e => (p.registryId && e.registry_id === p.registryId) || (p.userId && e.user_id === p.userId)); if (mine.length && mine[mine.length - 1].event === "left") p.status = "left"; }

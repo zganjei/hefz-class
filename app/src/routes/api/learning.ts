@@ -87,7 +87,7 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    return Response.json({submitted:true});
   }
   if(action==="create_course"||action==="create_week"||action==="create_lesson"||action==="create_question"||action==="enroll"){
-   if(!["admin","teacher"].includes(user.role))return jsonError("فقط معلم یا مدیر می‌تواند محتوا مدیریت کند.",403);
+   if(!["admin","teacher"].includes(user.role))return jsonError("فقط استاد یا مدیر می‌تواند محتوا مدیریت کند.",403);
    if(action==="create_course"){
     const classId=String(body?.classId||""),title=String(body?.title||"").trim().slice(0,120);
     if(!classId||!title)return jsonError("کلاس و عنوان دوره را مشخص کنید.");
