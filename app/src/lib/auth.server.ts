@@ -108,6 +108,27 @@ export async function createStaffAccount(request: Request, body: Record<string, 
   } catch { return jsonError("ساخت حساب انجام نشد.", 409); }
   return Response.json({ phone, password, role });
 }
+/** Admin changes an existing staff account between teacher and admin. Only users.role changes; class assignments stay. */
+export async function changeStaffRole(request: Request, body: Record<string, unknown>) {
+  const { user, response } = await requireRole(request, ["admin"]);
+  if (!user) return response!;
+  const { DB } = bindings();
+  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  const userId = typeof body.userId === "string" ? body.userId : "";
+  const role = body.role;
+  if (!userId || (role !== "admin" && role !== "teacher")) return jsonError("درخواست نامعتبر است.");
+  const target = await DB.prepare("SELECT id,display_name,role FROM users WHERE id=? AND active=1").bind(userId).first<{ id: string; display_name: string; role: Role }>();
+  if (!target) return jsonError("حساب پیدا نشد.", 404);
+  if (target.role !== "admin" && target.role !== "teacher") return jsonError("نقش حساب‌های حفظ‌آموز از اینجا قابل تغییر نیست.", 403);
+  if (target.role === role) return Response.json({ ok: true, role, unchanged: true });
+  if (role === "teacher") {
+    if (target.id === user.id) return jsonError("نمی‌توانید نقش مدیریت خودتان را بردارید.", 403);
+    const admins = await DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role='admin' AND active=1").first<{ n: number }>();
+    if (Number(admins?.n ?? 0) <= 1) return jsonError("آخرین مدیر را نمی‌شود به استاد تبدیل کرد.", 403);
+  }
+  await DB.prepare("UPDATE users SET role=? WHERE id=? AND role IN ('admin','teacher')").bind(role, target.id).run();
+  return Response.json({ ok: true, role });
+}
 // Password sign-up is disabled: it never proved that the person owns the invited email.
 // New accounts are created only through Google sign-in (verified email), see registerOrLoginWithGoogle.
 export async function registerWithInvite(_request: Request, _body: Record<string, unknown>) {
