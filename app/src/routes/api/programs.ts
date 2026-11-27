@@ -77,9 +77,10 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
 
   if (body.action === "assign") {
    const classId = clip(body.classId, 100), programId = clip(body.programId, 100);
-   if (!(await canManageClass(DB, user, classId))) return jsonError("فقط برای کلاس‌های خودتان می‌توانید برنامه تعیین کنید.", 403);
+   // Existence first: a deleted/stale class must say so, not claim a permission problem.
    const cls = await DB.prepare("SELECT id,name FROM classes WHERE id=?").bind(classId).first<{ id: string; name: string }>();
-   if (!cls) return jsonError("کلاس پیدا نشد.", 404);
+   if (!cls) return jsonError("کلاس پیدا نشد (شاید حذف شده؛ صفحه را تازه کنید).", 404);
+   if (!(await canManageClass(DB, user, classId))) return jsonError("فقط برای کلاس‌های خودتان می‌توانید برنامه تعیین کنید.", 403);
    if (!programId) {   // detach: the class goes back to the global plan
     await DB.prepare("UPDATE classes SET program_id=NULL,program_start=NULL WHERE id=?").bind(classId).run();
     return Response.json({ ok: true, classId, programId: null });

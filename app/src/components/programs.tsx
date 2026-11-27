@@ -9,18 +9,18 @@ const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶
 async function call(method: "GET" | "POST", body?: unknown) {
   const r = await fetch("/api/programs", { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   const d = await r.json().catch(() => ({ error: "پاسخ نامعتبر بود." }));
-  if (!r.ok) throw Object.assign(new Error(d.error || "خطا"), { code: d.code });
+  if (!r.ok) throw Object.assign(new Error(d.error || "خطا"), { code: d.code, status: r.status });
   return d;
 }
 
 /** Admin tools: create study programs (Excel or pasted rows) and give each class exactly one. */
-export function Programs() {
+export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
   const [programs, setPrograms] = useState<Program[]>([]), [classes, setClasses] = useState<Cls[]>([]), [defaultStart, setDefaultStart] = useState("");
   const [name, setName] = useState(""), [pasted, setPasted] = useState(""), [prev, setPrev] = useState<ParseResult | null>(null);
   const [pick, setPick] = useState<Record<string, { program: string; start: string }>>({}), [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState(""), [ok, setOk] = useState("");
   const load = useCallback(async () => { try { const d = await call("GET"); setPrograms(d.programs); setClasses(d.classes); setDefaultStart(d.defaultStart); } catch (e: any) { setMsg(e.message); } }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);   // refreshKey: classes were created/deleted elsewhere
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); setOk(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
 
   const onFile = (f?: File) => void run(async () => {
@@ -41,7 +41,9 @@ export function Programs() {
   });
   const assign = (c: Cls) => run(async () => {
     const p = pick[c.id] ?? { program: c.program_id || "", start: "" };
-    const r = await call("POST", { action: "assign", classId: c.id, programId: p.program, startDate: p.start || undefined });
+    let r: any;
+    try { r = await call("POST", { action: "assign", classId: c.id, programId: p.program, startDate: p.start || undefined }); }
+    catch (e: any) { if (e.status === 404) await load(); throw e; }   // stale list (class deleted elsewhere): refresh it, then show the message
     setOk(r.programId ? `«${r.programName}» برای کلاس «${r.className}» ثبت شد؛ هفتهٔ اول از ${r.startLabel} شروع می‌شود ✅` : `کلاس «${c.name}» دوباره روی برنامهٔ عمومی است ✅`);
     setPick(x => { const { [c.id]: _, ...rest } = x; return rest; }); await load();
   });
