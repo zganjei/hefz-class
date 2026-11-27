@@ -9,7 +9,7 @@ const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶
 async function call(method: "GET" | "POST", body?: unknown) {
   const r = await fetch("/api/programs", { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   const d = await r.json().catch(() => ({ error: "پاسخ نامعتبر بود." }));
-  if (!r.ok) throw new Error(d.error || "خطا");
+  if (!r.ok) throw Object.assign(new Error(d.error || "خطا"), { code: d.code });
   return d;
 }
 
@@ -45,7 +45,9 @@ export function Programs() {
     setOk(r.programId ? `«${r.programName}» برای کلاس «${r.className}» ثبت شد؛ هفتهٔ اول از ${r.startLabel} شروع می‌شود ✅` : `کلاس «${c.name}» دوباره روی برنامهٔ عمومی است ✅`);
     setPick(x => { const { [c.id]: _, ...rest } = x; return rest; }); await load();
   });
-  const del = (id: string) => run(async () => { await call("POST", { action: "delete", id }); setConfirmDel(null); setOk("برنامه حذف شد ✅"); await load(); });
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const detach = (id: string) => run(async () => { await call("POST", { action: "detach", id }); setBlocked(null); setOk("برنامه از کلاس‌ها جدا شد ✅ حالا می‌توانید حذفش کنید."); await load(); });
+  const del = (id: string) => run(async () => { setBlocked(null); try { await call("POST", { action: "delete", id }); } catch (e: any) { if (e.code === "in_use") setBlocked(id); throw e; } setConfirmDel(null); setOk("برنامه حذف شد ✅"); await load(); });
   const first = prev?.weeks[0], last = prev?.weeks[prev.weeks.length - 1];
 
   return <section className="panel programs-panel">
@@ -77,6 +79,7 @@ export function Programs() {
       {confirmDel === p.id
         ? <><button type="button" className="ghost-wide" disabled={busy} onClick={() => void del(p.id)}>بله، حذف شود</button> <button type="button" className="ghost-wide" onClick={() => setConfirmDel(null)}>انصراف</button></>
         : <button type="button" className="ghost-wide" onClick={() => setConfirmDel(p.id)}>حذف</button>}
+      {blocked === p.id && <button type="button" className="ghost-wide" disabled={busy} onClick={() => void detach(p.id)}>جدا کردن از کلاس‌ها</button>}
     </div>)}
 
     <h3>برنامهٔ هر کلاس</h3>
