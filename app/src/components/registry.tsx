@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { teacherKey, isNoTeacher } from "../lib/teacher-name";
+import { teacherKey, isNoTeacher, searchNorm, searchTokens } from "../lib/teacher-name";
 import { normClassName } from "../lib/class-name";
 import { lsLabel } from "../lib/level-step";
 import { lsOf } from "./level-step";
@@ -135,7 +135,8 @@ export function Registry() {
   useEffect(() => { void load(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message || "خطا"); } finally { setBusy(false); } };
   const kind = (tab === "student" || tab === "teacher" || tab === "supporter") ? tab : null;
-  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && (!fLv || lsOfPerson(p).level.includes(fLv)) && (!fSt || lsOfPerson(p).step.includes(fSt)) && (!q || Object.values(p).some(v => typeof v === "string" && v.includes(q)))), [all, kind, cls, q]);
+  const qt = useMemo(() => searchTokens(q), [q]);
+  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && (!fLv || lsOfPerson(p).level.includes(fLv)) && (!fSt || lsOfPerson(p).step.includes(fSt)) && (!qt.length || Object.values(p).some(v => typeof v === "string" && (() => { const n = searchNorm(v); return qt.every(t => n.includes(t)); })()))), [all, kind, cls, qt, fLv, fSt, siteClasses]);
   const classes = useMemo(() => Array.from(new Set(all.filter(p => p.kind === kind).flatMap(p => (p.class_name || "").split("،").map(x => x.trim())).filter(Boolean))), [all, kind]);
   const students = all.filter(p => p.kind === "student"), active = students.filter(p => p.status !== "inactive");
 

@@ -8,3 +8,7 @@ export function teacherKey(raw: unknown): string {
 }
 export const NO_TEACHER = "نامشخص";
 export const isNoTeacher = (raw: unknown) => { const k = teacherKey(raw); return !k || k === NO_TEACHER; };
+/** Search normalization (client + server safe): teacherKey (title prefixes, ی/ي ک/ك, ZWNJ, Persian/Arabic digits) + lowercase. */
+export const searchNorm = (raw: unknown) => teacherKey(raw).toLowerCase();
+/** Query tokens for a search box; every token must be found in the same field. */
+export const searchTokens = (q: string) => searchNorm(q).split(" ").filter(Boolean);

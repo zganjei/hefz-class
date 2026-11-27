@@ -4,6 +4,7 @@ import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
+import { searchNorm } from "../lib/teacher-name";
 import { TeacherPlan, LearnerPlan, ClassPosition } from "./hefz-plan";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
@@ -76,7 +77,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
       </header>}
       <div className="m-seg" role="tablist" aria-label="بخش‌های کلاس">{TABS.map(([k, t]) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{t}</button>)}</div>
       {sub === "info" && <ClassSheet mode="info" id={open} user={user} onLoaded={() => void refresh()} />}
-      {sub === "people" && <ClassSheet mode="people" classes={classes} id={open} user={user} onLoaded={() => void refresh()} onAttach={() => setSub("info")} />}
+      {sub === "people" && <ClassSheet mode="people" classes={classes} id={open} user={user} focusName={segs[2] === "people" ? segs[3] || "" : ""} onLoaded={() => void refresh()} onAttach={() => setSub("info")} />}
       {sub === "exams" && <Exams user={user} classes={classes} classId={open} embedded />}
       {sub === "report" && <ClassReports classId={open} embedded />}
       <Notice msg={msg} />
@@ -106,7 +107,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
 }
 
 /** One loaded class, two views: «اطلاعات کلاس» (mode info: the only place class properties are edited) and «قرآن‌آموزان» (mode people: weekly progress + position, then the learners). */
-function ClassSheet({ id, user, mode, classes, onLoaded, onAttach }: { id: string; user: User; mode: "info" | "people"; classes?: Cls[]; onLoaded?: () => void; onAttach?: () => void }) {
+function ClassSheet({ id, user, mode, classes, focusName, onLoaded, onAttach }: { focusName?: string; id: string; user: User; mode: "info" | "people"; classes?: Cls[]; onLoaded?: () => void; onAttach?: () => void }) {
   const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [programs, setPrograms] = useState<{ id: string; name: string; weeks: number }[] | null>(null), [pick, setPick] = useState(""), [pickWeek, setPickWeek] = useState(""), [confirm, setConfirm] = useState<"" | "change" | "remove">("");
   const [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
@@ -115,6 +116,14 @@ function ClassSheet({ id, user, mode, classes, onLoaded, onAttach }: { id: strin
   const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); onLoaded?.(); };
   useEffect(() => { void run(load); }, [id]);
   useEffect(() => { call("GET", "/api/programs").then(x => setPrograms(x.programs || [])).catch(() => setPrograms([])); }, []);
+  const focused = useRef("");
+  useEffect(() => {
+    if (!d || mode !== "people" || !focusName || focused.current === id + focusName) return;
+    const l = [...d.active, ...d.left].find((x: any) => searchNorm(x.name) === searchNorm(focusName));
+    if (!l) return;
+    focused.current = id + focusName; setOpenKey(l.key);
+    setTimeout(() => document.querySelector(`[data-lkey="${CSS.escape(l.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+  }, [d, mode, focusName]);
   if (!d) return <div>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</div>;
   return <div>
     {mode === "info" && <>
@@ -184,7 +193,7 @@ function Learner({ say, l, left, className, classPos, classId, open, toggle, run
   const all = l.digital.length + l.manual.length;
   const [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false), [rm, setRm] = useState(false);
   const last = l.history.filter((h: any) => h.classId === classId).slice(-1)[0];
-  return <article className="sheet-learner">
+  return <article className="sheet-learner" data-lkey={l.key}>
     <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{left && last ? "ترک: " + last.date : all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
     {open && <div className="sheet-body">
       <div className="sheet-info">

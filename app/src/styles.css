@@ -395,3 +395,13 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .ls-chip.unset{background:#eceee6;color:var(--tx-7a8a80)}.ls-chip.unset b{font-weight:400}
 .sheet-card.cls{cursor:pointer;gap:8px}.sheet-card .ls-chip{font-size:13px}.sheet-card .cls-info{font-size:13px;color:var(--tx-7a8a80)}
 .adm-position{margin:0 0 8px;font-size:15px;line-height:1.9}.adm-position p{margin:0}.adm-position i{font-style:normal;color:var(--tx-7a8a80)}
+/* Admin global search overlay */
+.adm-search-ov{position:fixed;inset:0;z-index:60;background:var(--bg-f7f4ea);display:flex;flex-direction:column;overflow:hidden}
+.adm-search-bar{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--bd-eae6db);background:var(--bg-fffdf8)}
+.adm-search-body{flex:1;overflow:auto;padding:12px 16px 40px;display:grid;gap:14px;align-content:start}
+.adm-search{position:relative;display:flex;flex:1;min-width:0}
+.adm-search input{width:100%;border:1px solid var(--bd-e5e5d9);border-radius:9px;background:var(--bg-fffefa);padding:10px 12px 10px 38px;color:var(--tx-334b3c);font-size:16px;min-width:0}
+.adm-search .adm-search-x{position:absolute;left:2px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:transparent;color:var(--tx-788479);font-size:15px;border-radius:50%}
+.adm-hit{display:grid;gap:3px;width:100%;text-align:right;border:1px solid var(--bd-eae6db);background:var(--bg-fffdf8);border-radius:10px;padding:10px 12px;margin-top:6px;color:inherit;min-height:44px}
+.adm-hit b{font-size:14px}.adm-hit small{font-size:12px;color:var(--tx-7a8a80);line-height:1.7}
+.adm-sub{padding-inline-start:12px}
