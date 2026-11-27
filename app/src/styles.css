@@ -344,6 +344,7 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .adm-sec.open>.adm-head{border-bottom:1px solid var(--bd-eae6db)}
 .adm-body{padding:14px 16px 18px;display:grid;gap:14px}
 .adm-body[hidden]{display:none}
+.adm-stack[hidden]{display:none}
 .adm-block{display:grid;gap:10px}
 .adm-block+.adm-block,.adm-stack>.adm-block+.adm-block{padding-top:16px;border-top:1px solid var(--bd-eae6db)}
 .m-app .adm-block h3,.m-app .adm-stack h3{font-size:16px;font-weight:700;margin:0;color:var(--tx-174b3b)}
