@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
-import { changeStaffRole, createStaffAccount, currentUser, jsonError } from "../../lib/auth.server";
+import { changeStaffRole, renameStaff, createStaffAccount, currentUser, jsonError } from "../../lib/auth.server";
 export const Route = createFileRoute("/api/staff")({ server: { handlers: {
   // Admin-only, read-only: active teacher accounts (id + name), used by the "add teacher to class" panel.
   GET: async ({request}) => {
@@ -22,6 +22,6 @@ export const Route = createFileRoute("/api/staff")({ server: { handlers: {
   PATCH: async ({request}) => {
     const body = await request.json().catch(()=>null) as Record<string,unknown>|null;
     if (!body) return jsonError("درخواست نامعتبر است.");
-    return changeStaffRole(request, body);
+    return typeof body.name === "string" && body.role === undefined ? renameStaff(request, body) : changeStaffRole(request, body);
   }
 }}});
