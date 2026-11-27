@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 type Sub = "" | "why1" | "why2" | "map" | "types" | "rules";
 
@@ -39,6 +40,7 @@ export function Landing({ onRegister, onLogin }: { onRegister: () => void; onLog
             ))}
           </nav>
           <div className="lp2-actions">
+            <ThemeToggle />
             <button type="button" className="lp2-btn ghost" onClick={onLogin}>ورود</button>
             <button type="button" className="lp2-btn gold" onClick={onRegister}>ثبت‌نام</button>
           </div>

@@ -12,6 +12,7 @@ import { button } from "@higgsfield/quanta/button";
 import { NotFound } from "@higgsfield/quanta/not-found";
 
 import appCss from "../styles.css?url";
+import { THEME_INIT_SCRIPT } from "../components/theme-toggle";
 import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // Page metadata (browser <title>/favicon + social og: tags) committed into the
 // repo by the marketplace meta API and read at BUILD time — no runtime fetch.
@@ -93,6 +94,8 @@ function buildHead(meta: AppMeta) {
       // Higgsfield feed cards also play it on hover.
       ...(ogVideo ? [{ property: "og:video", content: ogVideo }] : []),
     ],
+    // Sets data-theme before first paint (localStorage choice, else prefers-color-scheme).
+    scripts: [{ children: THEME_INIT_SCRIPT }],
     links: [
       { rel: "stylesheet", href: appCss },
       ...(favicon ? [{ rel: "icon", href: favicon }] : []),
@@ -161,10 +164,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="fa" dir="rtl">
-      {/* Marketplace apps are permanently dark: data-theme is pinned on <html>
-          above. Do not add quanta's bootstrapScript/ThemeController, a theme
-          toggle, or a light mode. */}
+    <html lang="fa" dir="rtl" suppressHydrationWarning>
+      {/* Light/dark theme: data-theme is set on <html> by THEME_INIT_SCRIPT (see components/theme-toggle.tsx); colours live in theme.css. */}
       <head>
         <HeadContent />
       </head>
