@@ -405,3 +405,5 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .adm-hit{display:grid;gap:3px;width:100%;text-align:right;border:1px solid var(--bd-eae6db);background:var(--bg-fffdf8);border-radius:10px;padding:10px 12px;margin-top:6px;color:inherit;min-height:44px}
 .adm-hit b{font-size:14px}.adm-hit small{font-size:12px;color:var(--tx-7a8a80);line-height:1.7}
 .adm-sub{padding-inline-start:12px}
+.reg-table td.reg-cls{min-width:150px;white-space:normal;font-size:12px;line-height:1.7}
+.reg-link{color:var(--tx-24543e);text-decoration:underline;text-underline-offset:3px;font-weight:600}
