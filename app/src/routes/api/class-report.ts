@@ -5,15 +5,16 @@ import { TEACHES_CLASS_SQL } from "../../lib/access.server";
 import { stockholmToday } from "../../lib/plan.server";
 import { programForClass, positionOf } from "../../lib/program.server";
 import { classPeople, registryStudents } from "../../lib/class-people.server";
+import { isStaff, isAdmin } from "../../lib/roles";
 
 /** Teacher (own classes) and admin (all classes): learners per class (signed-in and registry), the class's current program week, and each learner's exam scores (digital and hand-entered). No national IDs here. */
 export const Route = createFileRoute("/api/class-report")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const today = stockholmToday();
-  const classes = (user.role === "admin"
+  const classes = (isAdmin(user)
     ? await DB.prepare("SELECT c.id,c.name,c.level_name,c.step_name FROM classes c ORDER BY c.name").all<any>()
     : await DB.prepare(`SELECT c.id,c.name,c.level_name,c.step_name FROM classes c WHERE ${TEACHES_CLASS_SQL} ORDER BY c.name`).bind(user.id, user.id).all<any>()).results || [];
   const registry = await registryStudents(DB), out = [];

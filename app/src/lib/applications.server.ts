@@ -1,5 +1,6 @@
 import { bindings } from "./bindings.server";
 import { currentUser, jsonError } from "./auth.server";
+import { isAdmin } from "./roles";
 
 const encoder = new TextEncoder();
 const MAX_PENDING = 200;
@@ -61,7 +62,7 @@ export async function submitApplication(request: Request, body: Record<string, u
 
 export async function listApplications(request: Request) {
   const user = await currentUser(request);
-  if (!user || user.role !== "admin") return jsonError("فقط مدیر به درخواست‌ها دسترسی دارد.", 403);
+  if (!user || !isAdmin(user)) return jsonError("فقط مدیر به درخواست‌ها دسترسی دارد.", 403);
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const r = await DB.prepare("SELECT id,first_name,last_name,phone,bale_number,bale_id,education,email,status,created_at,decided_at,used_at FROM applications ORDER BY (status='pending') DESC, created_at DESC LIMIT 300").all();
@@ -94,7 +95,7 @@ export async function sendApprovalEmail(to: string, firstName: string): Promise<
 
 export async function decideApplication(request: Request, body: Record<string, unknown>) {
   const user = await currentUser(request);
-  if (!user || user.role !== "admin") return jsonError("فقط مدیر می‌تواند درخواست را بررسی کند.", 403);
+  if (!user || !isAdmin(user)) return jsonError("فقط مدیر می‌تواند درخواست را بررسی کند.", 403);
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const id = typeof body.id === "string" ? body.id : "";

@@ -6,6 +6,7 @@ import { stockholmToday } from "../../lib/plan.server";
 import { programForClass, positionOf, setClassWeek } from "../../lib/program.server";
 import { normClassName } from "../../lib/class-name";
 import { classPeople, personHistory, registryStudents, type Person } from "../../lib/class-people.server";
+import { hasRoleSql, isAdmin, isStaff } from "../../lib/roles";
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
@@ -21,14 +22,14 @@ async function programState(DB: any, classId: string, today: string) {
 export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const today = stockholmToday(), classId = new URL(request.url).searchParams.get("classId");
   const registry = await registryStudents(DB);
 
   if (!classId) {
-   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,c.class_day,c.class_time,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND ut.role='teacher' AND ut.active=1),'') AS teacher_name FROM classes c";
-   const rows = (user.role === "admin" ? await DB.prepare(`${sel} ORDER BY c.created_at DESC`).all<any>() : await DB.prepare(`${sel} WHERE ${TEACHES_CLASS_SQL} ORDER BY c.created_at DESC`).bind(user.id, user.id).all<any>()).results || [];
+   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,c.class_day,c.class_time,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND " + hasRoleSql("ut", "teacher") + " AND ut.active=1),'') AS teacher_name FROM classes c";
+   const rows = (isAdmin(user) ? await DB.prepare(`${sel} ORDER BY c.created_at DESC`).all<any>() : await DB.prepare(`${sel} WHERE ${TEACHES_CLASS_SQL} ORDER BY c.created_at DESC`).bind(user.id, user.id).all<any>()).results || [];
    const cards = [];
    for (const c of rows) {
     const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, today);
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(classId).all<any>()).results || [];
   const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(classId).all<any>()).results || [];
   const manual = (await DB.prepare("SELECT id,registry_id,user_id,title,score,max_score,score_date::text AS score_date,note FROM class_manual_scores WHERE class_id=? ORDER BY score_date NULLS LAST, created_at").bind(classId).all<any>()).results || [];
-  const mine = user.role === "admin" ? null : new Set(((await DB.prepare(`SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}`).bind(user.id, user.id).all<any>()).results || []).map(r => r.id as string));
+  const mine = isAdmin(user) ? null : new Set(((await DB.prepare(`SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}`).bind(user.id, user.id).all<any>()).results || []).map(r => r.id as string));
   const histories = new Map<string, Awaited<ReturnType<typeof personHistory>>>();
   for (const p of cp.people) histories.set(p.key, await personHistory(DB, p, mine));
   const cn = normClassName(cp.cls.name), hintRow = registry.find((r: any) => { const rn = normClassName(r.class_name); return rn.length >= 3 && cn.length >= 3 && (rn === cn || rn.includes(cn) || cn.includes(rn)) && (r.class_day || r.class_time); });
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null; if (!body) return jsonError("درخواست نامعتبر است.");
   const action = String(body.action || ""), classId = clip(body.classId, 80);

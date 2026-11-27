@@ -1,11 +1,14 @@
 import { bindings } from "./bindings.server";
 import { applicationForEmail } from "./applications.server";
 import { normalizePhone } from "./phone-auth.server";
+import { type AppRole, ALL_ROLES, checkRoleChange, hasRole, hasRoleSql, isAdmin, normalizeRoles, primaryRole } from "./roles";
+import { getRoles, setRoles, withRoles } from "./roles.server";
 
 const encoder = new TextEncoder();
 const DAY = 60 * 60 * 24;
 export type Role = "admin" | "teacher" | "memorizer";
-export type SessionUser = { id: string; email: string; display_name: string; role: Role };
+/** `role` = legacy primary (highest of admin > teacher > memorizer). `roles` = all roles the person holds; use hasRole()/isAdmin()/isStaff() from roles.ts, not `role`. */
+export type SessionUser = { id: string; email: string; display_name: string; role: Role; roles: AppRole[] };
 
 function b64(bytes: Uint8Array) {
   let s = "";
@@ -47,8 +50,8 @@ export async function currentUser(request: Request): Promise<SessionUser | null>
   if (!token) return null;
   const { DB } = bindings();
   if (!DB) return null;
-  const row = await DB.prepare("SELECT u.id,u.email,u.display_name,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at>? AND u.active=1").bind(token, new Date().toISOString()).first<SessionUser>();
-  return row ?? null;
+  const row = await DB.prepare("SELECT u.id,u.email,u.display_name,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at>? AND u.active=1").bind(token, new Date().toISOString()).first<Omit<SessionUser, "roles">>();
+  return row ? await withRoles(DB, row) : null;
 }
 export function sessionCookie(token: string, maxAge = DAY * 14) {
   return `hifz_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
@@ -59,14 +62,14 @@ export async function login(request: Request, identifier: string, password: stri
   const id = identifier.trim();
   const phone = id.includes("@") ? null : normalizePhone(id);
   const user = phone
-    ? await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE active=1 AND RIGHT(REGEXP_REPLACE(COALESCE(phone,''),'[^0-9]','','g'),10)=?").bind(phone.slice(-10)).first<SessionUser & { password_hash: string }>()
-    : await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(id.toLowerCase()).first<SessionUser & { password_hash: string }>();
+    ? await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE active=1 AND RIGHT(REGEXP_REPLACE(COALESCE(phone,''),'[^0-9]','','g'),10)=?").bind(phone.slice(-10)).first<Omit<SessionUser, "roles"> & { password_hash: string }>()
+    : await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(id.toLowerCase()).first<Omit<SessionUser, "roles"> & { password_hash: string }>();
   if (!user || !(await verifyPassword(password, user.password_hash))) return jsonError("شماره/ایمیل یا گذرواژه صحیح نیست.", 401);
   const token = crypto.randomUUID();
   const expires = new Date(Date.now() + DAY * 14 * 1000).toISOString();
   await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(token, user.id, expires).run();
   const headers = new Headers({ "Set-Cookie": sessionCookie(token) });
-  return Response.json({ user: { id: user.id, email: user.email, display_name: user.display_name, role: user.role } }, { headers });
+  return Response.json({ user: await withRoles(DB, { id: user.id, email: user.email, display_name: user.display_name, role: user.role }) }, { headers });
 }
 function randomPassword() {
   const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -96,18 +99,21 @@ export async function createStaffAccount(request: Request, body: Record<string, 
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const phone = normalizePhone(body.phone);
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
-  const role = body.role === "admin" ? "admin" : "teacher";
+  const wanted = Array.isArray(body.roles) ? normalizeRoles(body.roles) : [body.role === "admin" ? "admin" : "teacher"] as AppRole[];
   if (!phone || !name) return jsonError("نام و شماره‌ی همراه لازم است.");
+  if (!wanted.length) return jsonError("دست‌کم یک نقش انتخاب کنید.");
+  const role = primaryRole(wanted);
   const taken = await DB.prepare("SELECT id FROM users WHERE phone=?").bind(phone).first();
   if (taken) return jsonError("این شماره قبلاً ثبت شده است.", 409);
   const password = randomPassword();
+  const id = crypto.randomUUID();
   try {
     await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role,phone) VALUES (?,?,?,?,?,?)")
-      .bind(crypto.randomUUID(), `${phone}@phone.invalid`, name, await hashPassword(password), role, phone).run();
+      .bind(id, `${phone}@phone.invalid`, name, await hashPassword(password), role, phone).run();
+    await setRoles(DB, id, wanted);
   } catch { return jsonError("ساخت حساب انجام نشد.", 409); }
-  return Response.json({ phone, password, role });
+  return Response.json({ phone, password, role, roles: wanted });
 }
-/** Admin changes an existing staff account between teacher and admin. Only users.role changes; class assignments stay. */
 /** Trim, 2-60 chars, no HTML/control characters. Returns the cleaned name or null. */
 export function cleanDisplayName(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -137,29 +143,34 @@ export async function renameStaff(request: Request, body: Record<string, unknown
   const userId = typeof body.userId === "string" ? body.userId : "";
   const name = cleanDisplayName(body.name);
   if (!userId || !name) return jsonError(BAD_NAME);
-  const r = await DB.prepare("UPDATE users SET display_name=? WHERE id=? AND active=1 AND role IN ('admin','teacher')").bind(name, userId).run();
+  const r = await DB.prepare(`UPDATE users u SET display_name=? WHERE u.id=? AND u.active=1 AND (${hasRoleSql("u", "admin")} OR ${hasRoleSql("u", "teacher")} OR ${hasRoleSql("u", "supporter")})`).bind(name, userId).run();
   if (!(r as any)?.meta?.changes && (r as any)?.meta?.changes !== undefined) return jsonError("حساب پیدا نشد.", 404);
   return Response.json({ ok: true, name });
 }
+/** Set the roles of an account (body.roles, or legacy body.role = admin|teacher which swaps only the admin/teacher part). Admin only. */
 export async function changeStaffRole(request: Request, body: Record<string, unknown>) {
   const { user, response } = await requireRole(request, ["admin"]);
   if (!user) return response!;
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const userId = typeof body.userId === "string" ? body.userId : "";
-  const role = body.role;
-  if (!userId || (role !== "admin" && role !== "teacher")) return jsonError("درخواست نامعتبر است.");
+  if (!userId) return jsonError("درخواست نامعتبر است.");
   const target = await DB.prepare("SELECT id,display_name,role FROM users WHERE id=? AND active=1").bind(userId).first<{ id: string; display_name: string; role: Role }>();
   if (!target) return jsonError("حساب پیدا نشد.", 404);
-  if (target.role !== "admin" && target.role !== "teacher") return jsonError("نقش حساب‌های حفظ‌آموز از اینجا قابل تغییر نیست.", 403);
-  if (target.role === role) return Response.json({ ok: true, role, unchanged: true });
-  if (role === "teacher") {
-    if (target.id === user.id) return jsonError("نمی‌توانید نقش مدیریت خودتان را بردارید.", 403);
-    const admins = await DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role='admin' AND active=1").first<{ n: number }>();
-    if (Number(admins?.n ?? 0) <= 1) return jsonError("آخرین مدیر را نمی‌شود به استاد تبدیل کرد.", 403);
-  }
-  await DB.prepare("UPDATE users SET role=? WHERE id=? AND role IN ('admin','teacher')").bind(role, target.id).run();
-  return Response.json({ ok: true, role });
+  const current = await getRoles(DB, target.id, target.role);
+  let next: AppRole[];
+  if (Array.isArray(body.roles)) {
+    if (body.roles.some(r => !ALL_ROLES.includes(r as AppRole))) return jsonError("نقش نامعتبر است.");
+    next = normalizeRoles(body.roles);
+  } else if (body.role === "admin" || body.role === "teacher") {
+    next = normalizeRoles([...current.filter(r => r !== "admin" && r !== "teacher"), body.role]);
+  } else return jsonError("درخواست نامعتبر است.");
+  const verdict = checkRoleChange(current, next, target.id === user.id, async () => Number((await DB.prepare(`SELECT COUNT(*) AS n FROM users u WHERE u.active=1 AND u.id<>? AND ${hasRoleSql("u", "admin")}`).bind(target.id).first<{ n: number }>())?.n ?? 0));
+  const err = await verdict;
+  if (err) return jsonError(err, 403);
+  if (next.length === current.length && next.every(r => current.includes(r))) return Response.json({ ok: true, role: primaryRole(current), roles: current, unchanged: true });
+  await setRoles(DB, target.id, next);
+  return Response.json({ ok: true, role: primaryRole(next), roles: next });
 }
 // Password sign-up is disabled: it never proved that the person owns the invited email.
 // New accounts are created only through Google sign-in (verified email), see registerOrLoginWithGoogle.
@@ -181,8 +192,8 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
   } catch { return jsonError("ارتباط با سرویس گوگل برقرار نشد.", 502); }
   if (google.aud !== GOOGLE_CLIENT_ID || !google.sub || !google.email || google.email_verified !== "true") return jsonError("حساب گوگل معتبر یا تأییدشده نیست.", 401);
   const email = google.email.trim().toLowerCase();
-  const existing = await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(email).first<SessionUser & {password_hash:string}>();
-  let user: SessionUser;
+  const existing = await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(email).first<Omit<SessionUser, "roles"> & {password_hash:string}>();
+  let user: Omit<SessionUser, "roles">;
   if (existing) {
     if (existing.password_hash !== `google:${google.sub}`) return jsonError("این ایمیل قبلاً با گذرواژه ثبت شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
     user = { id: existing.id, email: existing.email, display_name: existing.display_name, role: existing.role };
@@ -198,7 +209,7 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
         await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) SELECT ?,?,?,?,'admin' WHERE NOT EXISTS (SELECT 1 FROM users)")
           .bind(id,email,name,`google:${google.sub}`).run();
       } catch { return jsonError("ساخت حساب مدیر انجام نشد؛ دوباره وارد شوید.",409); }
-      const created = await DB.prepare("SELECT id,email,display_name,role FROM users WHERE email=? AND active=1").bind(email).first<SessionUser>();
+      const created = await DB.prepare("SELECT id,email,display_name,role FROM users WHERE email=? AND active=1").bind(email).first<Omit<SessionUser, "roles">>();
       if (!created || created.role !== "admin") return jsonError("راه‌اندازی مدیر انجام نشد؛ ممکن است حساب دیگری زودتر ساخته شده باشد.",409);
       user = created;
     } else {
@@ -218,7 +229,7 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
         user = { id, email, display_name: name, role: "memorizer" };
         const session2 = crypto.randomUUID();
         await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(session2, user.id, new Date(Date.now() + DAY * 14 * 1000).toISOString()).run();
-        return Response.json({ user }, { headers: { "Set-Cookie": sessionCookie(session2) } });
+        return Response.json({ user: await withRoles(DB, user) }, { headers: { "Set-Cookie": sessionCookie(session2) } });
       }
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(invitation)));
     const token = b64(digest);
@@ -236,13 +247,13 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
   }
   const session = crypto.randomUUID();
   await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(session,user.id,new Date(Date.now()+DAY*14*1000).toISOString()).run();
-  return Response.json({user},{headers:{"Set-Cookie":sessionCookie(session)}});
+  return Response.json({user: await withRoles(DB, user)},{headers:{"Set-Cookie":sessionCookie(session)}});
 }
 
 export async function createInvitation(request: Request, body: Record<string, unknown>) {
   const user = await currentUser(request);
-  if (user?.role === "teacher") return jsonError("فقط مدیر می‌تواند دعوت‌نامه بسازد.",403);
-  if (!user || user.role !== "admin") return jsonError("دسترسی مجاز نیست.",403);
+  if (user && !isAdmin(user) && hasRole(user, "teacher")) return jsonError("فقط مدیر می‌تواند دعوت‌نامه بسازد.",403);
+  if (!user || !isAdmin(user)) return jsonError("دسترسی مجاز نیست.",403);
   const { DB } = bindings();
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const role = body.role;
@@ -255,8 +266,8 @@ export async function createInvitation(request: Request, body: Record<string, un
     .bind(crypto.randomUUID(),email,role,classId,b64(digest),new Date(Date.now()+DAY*7*1000).toISOString(),user.id).run();
   return Response.json({invitation:raw,expiresInDays:7});
 }
-export async function requireRole(request: Request, roles: Role[]) {
+export async function requireRole(request: Request, roles: AppRole[]) {
   const user = await currentUser(request);
-  if (!user || !roles.includes(user.role)) return { user: null, response: jsonError("برای این عملیات باید وارد شوید یا دسترسی کافی داشته باشید.",403) };
+  if (!user || !roles.some(r => hasRole(user, r))) return { user: null, response: jsonError("برای این عملیات باید وارد شوید یا دسترسی کافی داشته باشید.",403) };
   return { user, response: null };
 }

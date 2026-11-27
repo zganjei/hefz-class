@@ -5,9 +5,10 @@ import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./l
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
 import { searchNorm } from "../lib/teacher-name";
+import { hasRole } from "../lib/roles";
 import { TeacherPlan, LearnerPlan, ClassPosition } from "./hefz-plan";
 
-type User = { id: string; role: "admin" | "teacher" | "memorizer" };
+type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[] };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 const composeName = (base: string, year: string) => base.trim().replace(/\s+/g, " ") + (year.trim() ? " ورودی " + fa(year.trim()) : "");
 const sc = (s: number, m: number | null) => fa(s) + (m ? "/" + fa(m) : "");
@@ -62,12 +63,13 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
   const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; if (!open) setOpen(c[0].id, true); } };
   const refresh = () => call("GET", "/api/class-sheet").then(x => setCards(x.classes)).catch(() => {});
   useEffect(() => { void run(load); }, []);
-  const isAdmin = user.role === "admin";
-  const seg = isAdmin && !open && <div className="m-seg"><button className={!mine ? "on" : ""} onClick={() => setMine(false)}>کلاس‌ها</button><button className={mine ? "on" : ""} onClick={() => setMine(true)}>برنامه‌ی من</button></div>;
-  if (isAdmin && mine && !open) return <section className="m-plan">{seg}<LearnerPlan /></section>;
+  const isAdmin = hasRole(user, "admin"), isTchr = hasRole(user, "teacher");
+  // «برنامه‌ی من» switch for admins; a person who is also a قرآن‌آموز gets the «برنامه» tab in the bottom bar instead
+  const seg = isAdmin && !hasRole(user, "memorizer") && !open && <div className="m-seg"><button className={!mine ? "on" : ""} onClick={() => setMine(false)}>کلاس‌ها</button><button className={mine ? "on" : ""} onClick={() => setMine(true)}>برنامه‌ی من</button></div>;
+  if (isAdmin && !hasRole(user, "memorizer") && mine && !open) return <section className="m-plan">{seg}<LearnerPlan /></section>;
   const card = cards?.find(c => c.id === open);
   if (open) {
-    const only = !!cards && cards.length === 1 && user.role !== "teacher";
+    const only = !!cards && cards.length === 1 && !isTchr;
     return <section className="panel">
       {!only && <button className="secondary-action" onClick={() => { goBack(["classes"]); void run(load); }}>← کلاس‌ها</button>}
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
@@ -87,7 +89,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
   return <section className="panel">
     {seg}
     <h2>کلاس‌ها</h2>
-    {user.role === "teacher" && <div className="report-form">
+    {isTchr && <div className="report-form">
       <h3>کلاس جدید</h3>
       <label>نام کلاس<input value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً ورودی ۱۴۰۵ گام اول" /></label>
       <label>جایگاه (دستی، اختیاری)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>

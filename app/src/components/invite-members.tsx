@@ -21,7 +21,7 @@ export function InviteMembers({ classes }: { classes: { id: string; name: string
     <p className="plan-hint">برای افزودن قرآن‌آموز یا استاد جدید: ایمیل او را بنویسید، نقش و کلاس را انتخاب کنید و «ساخت دعوت‌نامه» را بزنید؛ لینکی ساخته می‌شود که آن را برایش می‌فرستید. با ورود از این لینک (۷ روز اعتبار، فقط با همان ایمیل)، حساب او ساخته می‌شود و در کلاسِ انتخاب‌شده قرار می‌گیرد.</p>
     <label className="field-label">ایمیل عضو<input type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} /></label>
     <div className="inline-form">
-      <select value={role} onChange={e => setRole(e.target.value)}><option value="memorizer">حافظ</option><option value="teacher">استاد</option></select>
+      <select value={role} onChange={e => setRole(e.target.value)}><option value="memorizer">قرآن‌آموز</option><option value="teacher">استاد</option></select>
       <select value={classId} onChange={e => setClassId(e.target.value)}><option value="">بدون کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select>
       <button type="button" className="adm-btn" disabled={busy || !email} onClick={() => void create()}>ساخت دعوت‌نامه</button>
     </div>

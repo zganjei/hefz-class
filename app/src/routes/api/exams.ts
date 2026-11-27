@@ -3,6 +3,7 @@ import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass, TEACHES_CLASS_SQL } from "../../lib/access.server";
 import { isIsoDate } from "../../lib/plan.server";
+import { hasRoleSql, isAdmin, isMemorizer, isStaff } from "../../lib/roles";
 
 const KINDS = ["hifz", "tadabbur", "vocabulary", "final"];
 const clip = (v: unknown, max: number) => (typeof v === "string" || typeof v === "number" ? String(v).trim().slice(0, max) : "");
@@ -12,7 +13,9 @@ export const Route = createFileRoute("/api/exams")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
-  const url = new URL(request.url), examId = url.searchParams.get("examId"), staff = user.role === "admin" || user.role === "teacher";
+  const url = new URL(request.url), examId = url.searchParams.get("examId");
+  // ?mine=1: a person who is staff AND a قرآن‌آموز asks for her own learner view (exams of classes she studies in)
+  const staff = isStaff(user) && !(url.searchParams.get("mine") === "1" && isMemorizer(user));
 
   if (examId) {
    const ex = await DB.prepare("SELECT e.id,e.class_id,e.title,e.exam_date::text AS exam_date,c.name AS class_name FROM class_exams e JOIN classes c ON c.id=e.class_id WHERE e.id=? AND e.active=1").bind(examId).first<any>();
@@ -21,7 +24,7 @@ export const Route = createFileRoute("/api/exams")({ server: { handlers: {
     if (!(await canManageClass(DB, user, ex.class_id))) return jsonError("دسترسی ندارید.", 403);
     const questions = (await DB.prepare("SELECT id,kind,prompt,choices,answer_key,points FROM class_exam_questions WHERE exam_id=? ORDER BY position,created_at").bind(examId).all<any>()).results || [];
     const attempts = (await DB.prepare("SELECT a.user_id,u.display_name,a.score,a.max_score,a.submitted_at::text AS submitted_at FROM class_exam_attempts a JOIN users u ON u.id=a.user_id WHERE a.exam_id=? ORDER BY u.display_name").bind(examId).all<any>()).results || [];
-    const members = (await DB.prepare("SELECT u.id,u.display_name FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role='memorizer' ORDER BY u.display_name").bind(ex.class_id).all<any>()).results || [];
+    const members = (await DB.prepare("SELECT u.id,u.display_name FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND " + hasRoleSql("u", "memorizer") + " ORDER BY u.display_name").bind(ex.class_id).all<any>()).results || [];
     return Response.json({ exam: ex, questions, attempts: attempts.map(a => ({ ...a, score: Number(a.score), max_score: Number(a.max_score) })), members });
    }
    const member = await DB.prepare("SELECT 1 AS ok FROM class_members WHERE class_id=? AND user_id=?").bind(ex.class_id, user.id).first<any>();
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/api/exams")({ server: { handlers: {
 
   // List
   if (staff) {
-   const rows = user.role === "admin"
+   const rows = isAdmin(user)
     ? (await DB.prepare("SELECT e.id,e.class_id,c.name AS class_name,e.title,e.exam_date::text AS exam_date,(SELECT COUNT(*) FROM class_exam_questions q WHERE q.exam_id=e.id) AS questions,(SELECT COUNT(*) FROM class_exam_attempts a WHERE a.exam_id=e.id) AS attempts FROM class_exams e JOIN classes c ON c.id=e.class_id WHERE e.active=1 ORDER BY e.created_at DESC").all<any>()).results
     : (await DB.prepare(`SELECT e.id,e.class_id,c.name AS class_name,e.title,e.exam_date::text AS exam_date,(SELECT COUNT(*) FROM class_exam_questions q WHERE q.exam_id=e.id) AS questions,(SELECT COUNT(*) FROM class_exam_attempts a WHERE a.exam_id=e.id) AS attempts FROM class_exams e JOIN classes c ON c.id=e.class_id WHERE e.active=1 AND ${TEACHES_CLASS_SQL} ORDER BY e.created_at DESC`).bind(user.id, user.id).all<any>()).results;
    return Response.json({ exams: (rows || []).map(r => ({ ...r, questions: Number(r.questions), attempts: Number(r.attempts) })) });
@@ -48,10 +51,10 @@ export const Route = createFileRoute("/api/exams")({ server: { handlers: {
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, any> | null;
   if (!body) return jsonError("درخواست نامعتبر است.");
-  const staff = user.role === "admin" || user.role === "teacher";
+  const staff = isStaff(user);
 
   if (body.action === "submit") {
-   if (user.role !== "memorizer") return jsonError("فقط قرآن‌آموز می‌تواند آزمون بدهد.", 403);
+   if (!isMemorizer(user)) return jsonError("فقط قرآن‌آموز می‌تواند آزمون بدهد.", 403);
    const examId = clip(body.examId, 80);
    const ex = await DB.prepare("SELECT e.id,e.class_id FROM class_exams e JOIN class_members m ON m.class_id=e.class_id AND m.user_id=? WHERE e.id=? AND e.active=1").bind(user.id, examId).first<any>();
    if (!ex) return jsonError("آزمون پیدا نشد یا برای کلاس شما نیست.", 403);

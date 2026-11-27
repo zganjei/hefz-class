@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
+import { isStaff } from "../../lib/roles";
 export const Route=createFileRoute("/api/reports/review")({server:{handlers:{POST:async({request})=>{
- const user=await currentUser(request); if(!user||!["admin","teacher"].includes(user.role))return jsonError("دسترسی مجاز نیست.",403);
+ const user=await currentUser(request); if(!user||!isStaff(user))return jsonError("دسترسی مجاز نیست.",403);
  const body=await request.json().catch(()=>null) as Record<string,unknown>|null;
  const id=typeof body?.id==="string"?body.id:"",status=body?.status,feedback=typeof body?.feedback==="string"?body.feedback.slice(0,1000):"";
  if(!id||!["approved","needs_revision"].includes(String(status)))return jsonError("وضعیت بررسی نامعتبر است.");
