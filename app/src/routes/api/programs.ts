@@ -51,10 +51,19 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    return Response.json({ ok: true, id, name, weeks: stored }, { status: 201 });
   }
 
+  if (body.action === "detach") {
+   const id = clip(body.id, 100); if (!id) return jsonError("شناسه لازم است.");
+   await DB.prepare("UPDATE classes SET program_id=NULL,program_start=NULL WHERE program_id=?").bind(id).run();
+   return Response.json({ ok: true });
+  }
+
   if (body.action === "delete") {
    const id = clip(body.id, 100); if (!id) return jsonError("شناسه لازم است.");
-   const used = await DB.prepare("SELECT COUNT(*) AS n FROM classes WHERE program_id=?").bind(id).first<{ n: number }>();
-   if (Number(used?.n)) return jsonError("این برنامه هنوز به یک کلاس وصل است. اول برنامهٔ کلاس‌ها را عوض کنید.", 409);
+   const usedBy = ((await DB.prepare("SELECT id,name FROM classes WHERE program_id=?").bind(id).all<{ id: string; name: string }>()).results || []);
+   const weekCount = Number((await DB.prepare("SELECT COUNT(*) AS n FROM hefz_program_weeks WHERE program_id=?").bind(id).first<{ n: number }>())?.n || 0);
+   if (usedBy.length && weekCount > 0) return Response.json({ error: `این برنامه به کلاس «${usedBy.map(c => c.name).join("، ")}» وصل است. اول آن را از کلاس جدا کنید.`, classes: usedBy, code: "in_use" }, { status: 409 });
+   // An EMPTY (0-week) program is useless anywhere: detach it from every class, then delete.
+   if (usedBy.length) await DB.prepare("UPDATE classes SET program_id=NULL,program_start=NULL WHERE program_id=?").bind(id).run();
    // Delete children explicitly instead of relying on ON DELETE CASCADE existing in every deployed schema.
    try {
     await DB.prepare("DELETE FROM hefz_program_ticks WHERE program_id=?").bind(id).run();
