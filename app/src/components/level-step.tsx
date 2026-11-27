@@ -42,8 +42,8 @@ export function LevelStepFilter({ classes, level, step, setLevel, setStep }: { c
 
 export const matchesLS = (c: LS, level: string, step: string) => { const v = lsOf(c); return (!level || v.level === level) && (!step || v.step === step); };
 
-/** Two labelled chips «سطح: …» / «گام: …», always shown ("ثبت نشده" muted when unset). With onEdit, a «تنظیم» button follows. */
-export function LevelStepChips({ level, step, onEdit }: { level?: string | null; step?: string | null; onEdit?: () => void }) {
+/** Two labelled chips «سطح: …» / «گام: …», always shown ("ثبت نشده" muted when unset). */
+export function LevelStepChips({ level, step }: { level?: string | null; step?: string | null }) {
   const chip = (label: string, v?: string | null) => <span className={"ls-chip" + (v ? "" : " unset")}>{label}: <b>{v || "ثبت نشده"}</b></span>;
-  return <div className="ls-chips">{chip("سطح", level)}{chip("گام", step)}{onEdit && <button type="button" className="ls-edit" onClick={e => { e.stopPropagation(); onEdit(); }}>تنظیم</button>}</div>;
+  return <div className="ls-chips">{chip("سطح", level)}{chip("گام", step)}</div>;
 }
