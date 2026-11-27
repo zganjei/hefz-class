@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Notice } from "./notice";
 import { displayClassName, displayClassNames } from "../lib/teacher-name";
 import { Confirm } from "./admin-ui";
+import { ProgramVideos } from "./video-admin";
 import * as XLSX from "xlsx";
 import { parseProgramRows, suggestProgramName, type ParseResult } from "../lib/program-parse";
 
@@ -54,6 +55,7 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
   const detach = (id: string) => run(async () => { await call("POST", { action: "detach", id }); setBlocked(null); setOk("برنامه از کلاس‌ها جدا شد ✅ حالا می‌توانید حذفش کنید."); await load(); });
   const del = (id: string) => run(async () => { setBlocked(null); try { await call("POST", { action: "delete", id }); } catch (e: any) { if (e.code === "in_use") setBlocked(id); throw e; } setConfirmDel(null); setOk("برنامه حذف شد ✅"); await load(); });
   const [editId, setEditId] = useState<string | null>(null), [editName, setEditName] = useState("");
+  const [vidId, setVidId] = useState<string | null>(null);
   const [infoId, setInfoId] = useState<string | null>(null), [info, setInfo] = useState<ProgramInfo | null>(null);
   const rename = (id: string) => run(async () => {
     const r = await call("POST", { action: "rename", id, name: editName });
@@ -88,9 +90,11 @@ export function Programs({ refreshKey = 0 }: { refreshKey?: number }) {
       </div>
       {confirmDel !== p.id && <div className="adm-actions">
         <button type="button" className="adm-btn quiet sm" aria-expanded={infoId === p.id} onClick={() => void toggleInfo(p.id)}>اطلاعات برنامه</button>
+        <button type="button" className="adm-btn quiet sm" aria-expanded={vidId === p.id} disabled={!p.weeks} onClick={() => setVidId(v => v === p.id ? null : p.id)}>ویدئوهای هفته‌ها</button>
         <button type="button" className="adm-btn quiet sm" disabled={busy} onClick={() => { setEditId(p.id); setEditName(p.name); }}>تغییر نام</button>
         <button type="button" className="adm-btn quiet sm" disabled={busy || !p.weeks} onClick={() => void download(p)}>دانلود</button>
       </div>}
+      {vidId === p.id && confirmDel !== p.id && <ProgramVideos programId={p.id} otherPrograms={programs.filter(x => x.id !== p.id && x.weeks > 0)} />}
       {editId === p.id && <div className="adm-note">
         <label>نام جدید<input value={editName} maxLength={80} onChange={e => setEditName(e.target.value)} /></label>
         <div className="adm-actions">

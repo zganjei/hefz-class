@@ -2,7 +2,7 @@ export function applySecurityHeaders(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https:; frame-ancestors 'self' https://*.higgsfield.app https://higgsfield.app https://*.higgsfield.ai https://fnf-dev.anwar-695.workers.dev https://feat-apps-marketplace-tools-fnf-dev.anwar-695.workers.dev; base-uri 'self'; form-action 'self'",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; frame-src https://www.youtube-nocookie.com https://www.aparat.com https://drive.google.com; connect-src 'self' https:; frame-ancestors 'self' https://*.higgsfield.app https://higgsfield.app https://*.higgsfield.ai https://fnf-dev.anwar-695.workers.dev https://feat-apps-marketplace-tools-fnf-dev.anwar-695.workers.dev; base-uri 'self'; form-action 'self'",
   );
   headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   headers.set("X-Content-Type-Options", "nosniff");
