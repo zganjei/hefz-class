@@ -1,6 +1,7 @@
 import { bindings } from "./bindings.server";
 import { jsonError, sessionCookie, type Role } from "./auth.server";
 import { sendOtpSms } from "./sms.server";
+import { enrollFromRegistry } from "./registry-members.server";
 
 const DAY = 60 * 60 * 24;
 const enc = new TextEncoder();
@@ -74,6 +75,7 @@ export async function verifyPhoneCode(request: Request, body: Record<string, unk
   }
   const u = await DB.prepare("SELECT id,email,display_name,role FROM users WHERE id=? AND active=1").bind(userId).first<{ id: string; email: string; display_name: string; role: Role }>();
   if (!u) return jsonError("حساب غیرفعال است.", 403);
+  await enrollFromRegistry(DB, { ...u, phone });
   const session = crypto.randomUUID();
   await DB.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)").bind(session, u.id, new Date(Date.now() + DAY * 14 * 1000).toISOString()).run();
   return Response.json({ user: u }, { headers: { "Set-Cookie": sessionCookie(session) } });
