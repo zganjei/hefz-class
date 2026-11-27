@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 async function call(method: string, path: string, body?: unknown) {
   const r = await fetch(path, { method, ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}) });
@@ -15,6 +15,8 @@ export function RegistryClasses({ onCreated }: { onCreated?: () => void }) {
   const [plan, setPlan] = useState<{ toCreate: Item[]; already: Item[] } | null>(null);
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [all, setAll] = useState<{ id: string; name: string }[] | null>(null), [insp, setInsp] = useState<Insp | null>(null);
+  const [activeId, setActiveId] = useState(""), [dmsg, setDmsg] = useState(""), boxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { if (insp || dmsg) boxRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [insp, dmsg]);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   return <section className="panel">
     <h2>کلاس‌های دفتر</h2>
@@ -35,15 +37,22 @@ export function RegistryClasses({ onCreated }: { onCreated?: () => void }) {
       <h3>حذف کلاس خالی</h3>
       <p className="plan-hint">فقط کلاسی که عضو، معلم، آزمون، برنامه یا گزارشی ندارد (جز عضویت خودِ شما) حذف می‌شود. اول توضیح می‌دهم چه چیزی برداشته می‌شود و بعد با تأیید دوم حذف می‌کنم.</p>
       {!all && <button className="secondary-action" disabled={busy} onClick={() => void run(async () => setAll((await call("GET", "/api/registry-classes?classes=1")).classes))}>نمایش کلاس‌ها</button>}
-      {all?.map(c => <div className="simple-row" key={c.id}><b>{c.name}</b><button className="secondary-action" disabled={busy} onClick={() => void run(async () => setInsp(await call("GET", "/api/registry-classes?inspect=" + encodeURIComponent(c.id))))}>حذف کلاس خالی</button></div>)}
-      {insp && <div className="invite-result">
-        <b>{insp.name}</b>
-        {insp.blockers.length
-          ? <p className="error-msg">خالی نیست، پس حذف نمی‌شود: {insp.blockers.join("، ")}.</p>
-          : <><p>این موارد برداشته می‌شود: {insp.willRemove.join("، ")}. این کار قابل برگشت نیست.</p>
-            <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { const d = await call("DELETE", "/api/registry-classes", { classId: insp.id }); setInsp(null); setAll((await call("GET", "/api/registry-classes?classes=1")).classes); setMsg(`کلاس «${d.deleted}» حذف شد ✅`); onCreated?.(); })}>بله، حذف شود</button></>}
-        <button className="secondary-action" onClick={() => setInsp(null)}>انصراف</button>
-      </div>}
+      {all && !all.some(c => c.id === activeId) && dmsg && <div ref={boxRef}>{dmsg.includes("✅") ? <p className="hint">{dmsg}</p> : <p className="error-msg">{dmsg}</p>}</div>}
+      {all?.map(c => <div key={c.id}>
+        <div className="simple-row"><b>{c.name}</b><button className="secondary-action" disabled={busy} onClick={() => void run(async () => { setActiveId(c.id); setInsp(null); setDmsg(""); try { setInsp(await call("GET", "/api/registry-classes?inspect=" + encodeURIComponent(c.id))); } catch (e: any) { setDmsg(e.message); } })}>{busy && activeId === c.id && !insp ? "در حال بررسی…" : "حذف کلاس خالی"}</button></div>
+        {activeId === c.id && <div ref={boxRef}>
+          {busy && !insp && !dmsg && <p className="plan-hint">در حال بررسی…</p>}
+          {dmsg && <p className={dmsg.includes("✅") ? "hint" : "error-msg"}>{dmsg}</p>}
+          {insp && insp.id === c.id && <div className="invite-result">
+            <b>{insp.name}</b>
+            {insp.blockers.length
+              ? <p className="error-msg">خالی نیست، پس حذف نمی‌شود: {insp.blockers.join("، ")}.</p>
+              : <><p>این موارد برداشته می‌شود: {insp.willRemove.join("، ")}. این کار قابل برگشت نیست.</p>
+                <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { try { const d = await call("DELETE", "/api/registry-classes", { classId: insp.id }); setInsp(null); setAll((await call("GET", "/api/registry-classes?classes=1")).classes); setDmsg(`کلاس «${d.deleted}» حذف شد ✅`); onCreated?.(); } catch (e: any) { setDmsg(e.message); } })}>بله، حذف شود</button></>}
+            <button className="secondary-action" onClick={() => { setInsp(null); setActiveId(""); setDmsg(""); }}>انصراف</button>
+          </div>}
+        </div>}
+      </div>)}
     </div>
     {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
   </section>;
