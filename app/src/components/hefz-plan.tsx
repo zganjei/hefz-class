@@ -149,7 +149,13 @@ export function LearnerPlan() {
   </section>;
 }
 
-type Report = { program?: { id: string; name: string } | null; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
+/** THE position of a class: its program week (derived from the program start; the «تغییر هفته» control shifts that start). The free-text note is only a fallback label when no program is attached. */
+export function ClassPosition({ hasProgram, status, week, note, onAttach }: { hasProgram: boolean; status?: string; week: { week_number: number; title: string } | null; note?: string; onAttach?: () => void }) {
+  if (hasProgram) return <p className="adm-position"><i>جایگاه کلاس:</i> <b>{week ? `هفتهٔ ${fa(week.week_number)} · ${week.title}` : status === "ended" ? "برنامه به پایان رسیده است" : "هنوز شروع نشده است"}</b></p>;
+  return <div className="adm-position"><p><i>جایگاه (دستی):</i> <b>{note || "ثبت نشده"}</b></p><p className="plan-hint">برای نمایش هفته، یک برنامه به کلاس وصل کنید.</p>{onAttach && <button type="button" className="secondary-action" onClick={onAttach}>وصل کردن برنامه</button>}</div>;
+}
+
+type Report = { program?: { id: string; name: string } | null; positionNote?: string; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
 type RosterRow = { name: string; registered: boolean; phone: string | null; email: string | null; nationalId: string | null; code: string | null; level: string | null; education: string | null; hifzAmount: string | null; tadabburAmount: string | null; notes: string | null; hefz: { daysDone: number }; scores: { week: number; weekTitle: string; lesson: string; score: number; max: number; passed: boolean }[] };
 type Roster = { program?: { id: string; name: string } | null; className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; programEnded?: boolean; positionNote?: string; sessionsHeld: number | null; rows: RosterRow[] };
 function ClassRoster({ classId }: { classId: string }) {
@@ -162,10 +168,6 @@ function ClassRoster({ classId }: { classId: string }) {
     <div className="plan-week-head static"><div><b>اطلاعات کلاس · {r.className}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
     <div className="roster-meta">
       {r.program && <p><i>برنامهٔ کلاس:</i> {r.program.name}</p>}
-      {r.program
-        ? <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : r.programEnded ? "برنامه به پایان رسیده است" : "هنوز شروع نشده است"}</p>
-        : <p><i>جایگاه فعلی کلاس:</i> {r.positionNote || "ثبت نشده"} <small>(برنامه‌ای به این کلاس وصل نیست)</small></p>}
-      <p className="plan-hint">جایگاه واقعی کلاس را از زبانهٔ «قرآن‌آموزان» ← «تنظیمات کلاس» تنظیم کنید.</p>
       <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
       <p><i>تعداد قرآن‌آموزان:</i> {fa(r.rows.length)}</p>
     </div>
@@ -184,7 +186,7 @@ function ClassRoster({ classId }: { classId: string }) {
 }
 
 /** Weekly progress per learner for a class. With `fixedClassId` (inside a class) the class picker is hidden. */
-export function TeacherPlan({ classes, fixedClassId }: { classes: { id: string; name: string }[]; fixedClassId?: string }) {
+export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id: string; name: string }[]; fixedClassId?: string; onAttach?: () => void }) {
   const [classId, setClassId] = useState(fixedClassId || classes[0]?.id || ""), [week, setWeek] = useState<number | null>(null), [data, setData] = useState<Report | null>(null), [msg, setMsg] = useState("");
   useEffect(() => { if (fixedClassId) setClassId(fixedClassId); else if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId, fixedClassId]);
   useEffect(() => {
@@ -194,10 +196,12 @@ export function TeacherPlan({ classes, fixedClassId }: { classes: { id: string; 
   return <section className="plan-wrap">
     <div className="plan-toolbar">
       {!fixedClassId && classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
-      {data && <label>هفته<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
+      {data && <label>مشاهدهٔ هفته{data.program && (week ?? data.week.week_number) === data.currentWeek && <span className="adm-badge" style={{ justifySelf: "start" }}>هفتهٔ جاری کلاس</span>}<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}
-    {data?.program && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b> · {data.currentWeek ? `الان در هفتهٔ ${fa(data.currentWeek)}${data.currentWeekTitle ? " · " + data.currentWeekTitle : ""}` : "برنامه به پایان رسیده است"}</p>}
+    {data && <ClassPosition hasProgram={!!data.program} status={data.program && data.currentWeek == null ? "ended" : undefined} week={data.program && data.currentWeek != null ? { week_number: data.currentWeek, title: data.currentWeekTitle || "" } : null} note={data.positionNote} onAttach={onAttach} />}
+    {data?.program && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b></p>}
+    {data && !data.program && <p className="plan-hint">هفته‌های زیر از برنامهٔ عمومی است، چون برنامه‌ای به این کلاس وصل نیست.</p>}
     {data && <article className="plan-week current"><div className="plan-week-head static"><div><b>هفتهٔ {fa(data.week.week_number)} · {data.week.title}</b><small>{pageLabel(data.week)}</small></div></div>
       <div className="m-members">
         {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length, all = doneNew === data.week.newDays.length; return <div key={m.id} className="m-member">

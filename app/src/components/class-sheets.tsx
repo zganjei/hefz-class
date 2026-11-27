@@ -3,7 +3,7 @@ import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
-import { TeacherPlan, LearnerPlan } from "./hefz-plan";
+import { TeacherPlan, LearnerPlan, ClassPosition } from "./hefz-plan";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -18,8 +18,8 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 }
 
 const weekLine = (c: any) => c.hasProgram
-  ? "برنامه: " + c.program + (c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده")
-  : "جایگاه: " + (c.positionNote || "ثبت نشده") + " · برنامه‌ای به این کلاس وصل نیست";
+  ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") + " · برنامه: " + c.program
+  : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده");
 
 type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
 const TABS: [string, string][] = [["progress", "پیشرفت"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"]];
@@ -27,7 +27,7 @@ const TABS: [string, string][] = [["progress", "پیشرفت"], ["people", "قر
 /** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs پیشرفت / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
 export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
   const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [sub, setSub] = useState("progress"), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [name, setName] = useState(""), [term, setTerm] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false), [editId, setEditId] = useState("");
+  const [name, setName] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false), [editId, setEditId] = useState("");
   const auto = useRef(true);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; setOpen(c[0].id); } };
@@ -42,12 +42,12 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     return <section className="panel">
       {!only && <button className="secondary-action" onClick={() => { setOpen(""); setSub("progress"); void run(load); }}>← کلاس‌ها</button>}
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
-        <h2>{card.name}{card.term ? " · " + card.term : ""}</h2>
+        <h2>{card.name}</h2>
         <LevelStepChips level={card.level} step={card.step} />
         <p className="plan-hint">{[card.teacher && isAdmin ? "استاد: " + card.teacher : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
       </header>}
       <div className="m-seg" role="tablist" aria-label="بخش‌های کلاس">{TABS.map(([k, t]) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{t}</button>)}</div>
-      {sub === "progress" && <TeacherPlan classes={classes} fixedClassId={open} />}
+      {sub === "progress" && <TeacherPlan classes={classes} fixedClassId={open} onAttach={() => setSub("people")} />}
       {sub === "people" && <ClassSheet id={open} user={user} onLoaded={() => void refresh()} />}
       {sub === "exams" && <Exams user={user} classes={classes} classId={open} embedded />}
       {sub === "report" && <ClassReports classId={open} embedded />}
@@ -59,19 +59,18 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     {seg}
     <h2>کلاس‌ها</h2>
     {user.role === "teacher" && <div className="report-form">
-      <h3>کلاس یا ترم جدید</h3>
+      <h3>کلاس جدید</h3>
       <label>نام کلاس<input value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً ورودی ۱۴۰۵ گام اول" /></label>
-      <label>ترم یا دوره (اختیاری)<input value={term} onChange={e => setTerm(e.target.value)} placeholder="مثلاً ترم سوم" /></label>
-      <label>جایگاه فعلی کلاس (اختیاری)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
-      <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, term, positionNote: pos }); setName(""); setTerm(""); setPos(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
+      <label>جایگاه (دستی، اختیاری)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
+      <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, positionNote: pos }); setName(""); setPos(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
     </div>}
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
     {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => { setSub("progress"); setOpen(c.id); }} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSub("progress"); setOpen(c.id); } }}>
-      <b>{c.name}{c.term ? " · " + c.term : ""}</b>
+      <b>{c.name}</b>
       <LevelStepChips level={c.level} step={c.step} onEdit={canSet ? () => setEditId(editId === c.id ? "" : c.id) : undefined} />
       {editId === c.id && <div onClick={e => e.stopPropagation()}><LevelStepEditor level={c.level} step={c.step} busy={busy} onSave={(level, step) => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-level-step", classId: c.id, level, step }); setEditId(""); await load(); setMsg("سطح و گام ذخیره شد ✅"); })} /></div>}
-      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "برنامه‌ای وصل نیست", c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
+      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
     </div>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
     {cards && !!cards.length && !shown.length && <p className="empty-state">کلاسی با این سطح و گام نیست.</p>}
@@ -82,10 +81,10 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
 function ClassSheet({ id, user, onLoaded }: { id: string; user: User; onLoaded?: () => void }) {
   const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [programs, setPrograms] = useState<{ id: string; name: string; weeks: number }[] | null>(null), [pick, setPick] = useState(""), [pickWeek, setPickWeek] = useState(""), [confirm, setConfirm] = useState<"" | "change" | "remove">("");
-  const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
+  const [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const [nm, setNm] = useState(""), [yr, setYr] = useState("");
-  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); onLoaded?.(); };
+  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); onLoaded?.(); };
   useEffect(() => { void run(load); }, [id]);
   useEffect(() => { call("GET", "/api/programs").then(x => setPrograms(x.programs || [])).catch(() => setPrograms([])); }, []);
   if (!d) return <div>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</div>;
@@ -109,47 +108,45 @@ function ClassSheet({ id, user, onLoaded }: { id: string; user: User; onLoaded?:
         {confirm && <button className="secondary-action" onClick={() => setConfirm("")}>انصراف</button>}
       </>}
     </div>
-    {d.hasProgram
-      ? <div className="report-form">
-          <h3>جایگاه واقعی کلاس</h3>
-          <p className="plan-hint">اگر کلاس در عمل جلوتر یا عقب‌تر از تاریخ برنامه است، هفته‌ی واقعی را اینجا بگذارید. برنامه‌ی روزانه‌ی قرآن‌آموزان هم از همین هفته ادامه پیدا می‌کند.</p>
-          <div className="inline-form">
-            <button className="secondary-action" disabled={busy || d.status === "none"} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: -1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی قبل</button>
-            <button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: 1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی بعد</button>
-          </div>
-          <label>هفته‌ی واقعی کلاس<select value={wk} onChange={e => setWk(e.target.value)}><option value="">انتخاب هفته</option>{d.programWeeks.map((w: any) => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>
-          <button className="primary-wide" disabled={busy || !wk || String(d.currentWeek?.week_number ?? "") === wk} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, weekNumber: Number(wk) }); await load(); setMsg("جایگاه کلاس ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button>
+    <div className="report-form">
+      <h3>جایگاه کلاس</h3>
+      <ClassPosition hasProgram={d.hasProgram} status={d.status} week={d.currentWeek} note={d.positionNote} />
+      {d.hasProgram && <>
+        <p className="plan-hint">اگر کلاس در عمل جلوتر یا عقب‌تر از تاریخ برنامه است، هفته را اینجا تغییر دهید؛ برنامه‌ی روزانه‌ی قرآن‌آموزان هم از همین هفته ادامه پیدا می‌کند.</p>
+        <div className="inline-form">
+          <button className="secondary-action" disabled={busy || d.status === "none"} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: -1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی قبل</button>
+          <button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: 1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی بعد</button>
         </div>
-      : <p className="plan-hint">{user.role === "admin" ? "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید." : "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید."}</p>}
+        <label>تغییر هفته<select value={wk} onChange={e => setWk(e.target.value)}><option value="">انتخاب هفته</option>{d.programWeeks.map((w: any) => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>
+        <button className="primary-wide" disabled={busy || !wk || String(d.currentWeek?.week_number ?? "") === wk} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, weekNumber: Number(wk) }); await load(); setMsg("جایگاه کلاس ذخیره شد ✅"); })}>ذخیره‌ی هفته</button>
+      </>}
+      {!d.hasProgram && <><label>جایگاه (دستی)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
+        <button className="secondary-action" disabled={busy || pos === d.positionNote} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button></>}
+    </div>
     <div className="report-form">
       <h3>نام و سال ورودی کلاس</h3>
       <label>نام کلاس<input value={nm} onChange={e => setNm(e.target.value)} maxLength={80} /></label>
       <label>سال ورودی (اختیاری)<input inputMode="numeric" value={yr} onChange={e => setYr(e.target.value.replace(/[^0-9۰-۹]/g, "").slice(0, 4))} placeholder="مثلاً ۱۴۰۴" /></label>
       <p className="plan-hint">نام نهایی: {composeName(nm, yr) || "—"}</p>
-      <button className="secondary-action" disabled={busy || !nm.trim() || composeName(nm, yr) === d.name} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, name: composeName(nm, yr), term: d.term, positionNote: d.positionNote }); await load(); setMsg("نام کلاس ذخیره شد ✅"); })}>ذخیره‌ی نام و سال ورودی</button>
-    </div>
-    <div className="report-form">
-      <label>ترم یا دوره<input value={term} onChange={e => setTerm(e.target.value)} /></label>
-      <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
-      <button className="secondary-action" disabled={busy || (term === d.term && pos === d.positionNote)} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, term, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی ترم و جایگاه</button>
+      <button className="secondary-action" disabled={busy || !nm.trim() || composeName(nm, yr) === d.name} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, name: composeName(nm, yr) }); await load(); setMsg("نام کلاس ذخیره شد ✅"); })}>ذخیره‌ی نام و سال ورودی</button>
     </div>
     </details>
     <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
-    {d.active.map((l: any) => <Learner say={setMsg} key={l.key} l={l} className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+    {d.active.map((l: any) => <Learner say={setMsg} key={l.key} l={l} className={d.name} classPos={d.positionNote} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
     {d.left.length > 0 && <>
       <h3 className="sheet-h">سابقه (ترک‌کرده‌ها)</h3>
       <p className="plan-hint">این‌ها در شمارش فعال‌ها نیستند. سابقه‌شان می‌ماند و هر وقت برگردند می‌توانید ثبت کنید.</p>
-      {d.left.map((l: any) => <Learner say={setMsg} key={l.key} l={l} left className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+      {d.left.map((l: any) => <Learner say={setMsg} key={l.key} l={l} left className={d.name} classPos={d.positionNote} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     </>}
     <Notice msg={msg} />
   </div>;
 }
 
-function Learner({ say, l, left, className, classTerm, classPos, classId, open, toggle, run, busy, reload }: { say: (m: string) => void; l: any; left?: boolean; className: string; classTerm: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
+function Learner({ say, l, left, className, classPos, classId, open, toggle, run, busy, reload }: { say: (m: string) => void; l: any; left?: boolean; className: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
   const [title, setTitle] = useState(""), [score, setScore] = useState(""), [max, setMax] = useState(""), [date, setDate] = useState(""), [note, setNote] = useState("");
   const all = l.digital.length + l.manual.length;
-  const [lt, setLt] = useState(classTerm), [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false), [rm, setRm] = useState(false);
+  const [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false), [rm, setRm] = useState(false);
   const last = l.history.filter((h: any) => h.classId === classId).slice(-1)[0];
   return <article className="sheet-learner">
     <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{left && last ? "ترک: " + last.date : all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
@@ -171,13 +168,12 @@ function Learner({ say, l, left, className, classTerm, classPos, classId, open, 
           </div>
         : <div className="report-form">
             <h4>ثبت ترک کلاس</h4>
-            <label>ترم<input value={lt} onChange={e => setLt(e.target.value)} /></label>
             <label>تا کجا رسیده بود (سوره یا جایگاه)<input value={lp} onChange={e => setLp(e.target.value)} placeholder="مثلاً سوره‌ی فلان، آیه‌ی ۱۰" /></label>
             <label>دلیل ترک<input value={lr} onChange={e => setLr(e.target.value)} /></label>
             <label>تاریخ (اختیاری، پیش‌فرض امروز)<input type="date" value={ld} onChange={e => setLd(e.target.value)} /></label>
             {!confirm ? <button className="secondary-action" disabled={busy || !lr.trim()} onClick={() => setConfirm(true)}>ترک کرد…</button>
               : <><p className="plan-hint">«{l.name}» از شمارش فعال‌ها کنار می‌رود و در «سابقه» می‌ماند. قابل برگشت است.</p>
-                <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "leave", classId, person: l.key, term: lt, position: lp, reason: lr, date: ld }); setConfirm(false); setLr(""); await reload(); })}>بله، ثبت شود</button>
+                <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "leave", classId, person: l.key, position: lp, reason: lr, date: ld }); setConfirm(false); setLr(""); await reload(); })}>بله، ثبت شود</button>
                 <button className="secondary-action" onClick={() => setConfirm(false)}>انصراف</button></>}
           </div>}
       <div className="report-form">

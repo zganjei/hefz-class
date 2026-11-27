@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
     : (await DB.prepare("SELECT p.user_id,COUNT(*) AS n FROM hefz_plan_progress p JOIN class_members m ON m.user_id=p.user_id AND m.class_id=? GROUP BY p.user_id").bind(classId).all<{ user_id: string; n: number }>()).results) || [];
    const days = expandWeek(week, today, new Set());
    return Response.json({
-    program: progInfo, currentWeek, currentWeekTitle: all.find(w => w.week_number === currentWeek)?.title ?? null, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
+    program: progInfo, positionNote: (await DB.prepare("SELECT position_note FROM classes WHERE id=?").bind(classId).first<any>())?.position_note || "", currentWeek, currentWeekTitle: all.find(w => w.week_number === currentWeek)?.title ?? null, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
     weeks: all.filter(w => isOpen(w, today)).map(w => ({ week_number: w.week_number, title: w.title })),
     members: members.map(m => ({ id: m.id, name: m.display_name, done: prog2.filter(p => p.user_id === m.id).map(p => p.day_index), lastTick: prog2.filter(p => p.user_id === m.id).map(p => p.done_at).sort().pop() || null, totalDone: Number(totals.find(t => t.user_id === m.id)?.n || 0) })),
    });
