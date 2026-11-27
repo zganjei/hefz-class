@@ -21,6 +21,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
 import { Route as ApiLearningRouteImport } from './routes/api/learning'
 import { Route as ApiPlanRouteImport } from './routes/api/plan'
+import { Route as ApiProgramsRouteImport } from './routes/api/programs'
 import { Route as ApiRegistryRouteImport } from './routes/api/registry'
 import { Route as ApiRegistryClassesRouteImport } from './routes/api/registry-classes'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
@@ -93,6 +94,11 @@ const ApiPlanRoute = ApiPlanRouteImport.update({
   path: '/api/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProgramsRoute = ApiProgramsRouteImport.update({
+  id: '/api/programs',
+  path: '/api/programs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRegistryRoute = ApiRegistryRouteImport.update({
   id: '/api/registry',
   path: '/api/registry',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
+  '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/programs'
     | '/api/registry'
     | '/api/registry-classes'
     | '/api/reports'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/programs'
     | '/api/registry'
     | '/api/registry-classes'
     | '/api/reports'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/api/invitations'
     | '/api/learning'
     | '/api/plan'
+    | '/api/programs'
     | '/api/registry'
     | '/api/registry-classes'
     | '/api/reports'
@@ -316,6 +328,7 @@ export interface RootRouteChildren {
   ApiInvitationsRoute: typeof ApiInvitationsRoute
   ApiLearningRoute: typeof ApiLearningRoute
   ApiPlanRoute: typeof ApiPlanRoute
+  ApiProgramsRoute: typeof ApiProgramsRoute
   ApiRegistryRoute: typeof ApiRegistryRoute
   ApiRegistryClassesRoute: typeof ApiRegistryClassesRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       path: '/api/plan'
       fullPath: '/api/plan'
       preLoaderRoute: typeof ApiPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/programs': {
+      id: '/api/programs'
+      path: '/api/programs'
+      fullPath: '/api/programs'
+      preLoaderRoute: typeof ApiProgramsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/registry': {
@@ -519,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInvitationsRoute: ApiInvitationsRoute,
   ApiLearningRoute: ApiLearningRoute,
   ApiPlanRoute: ApiPlanRoute,
+  ApiProgramsRoute: ApiProgramsRoute,
   ApiRegistryRoute: ApiRegistryRoute,
   ApiRegistryClassesRoute: ApiRegistryClassesRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
