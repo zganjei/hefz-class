@@ -43,8 +43,12 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    }); } catch (e: any) { return jsonError(e.message || "برنامه نامعتبر است."); }
    const id = crypto.randomUUID();
    await DB.prepare("INSERT INTO hefz_programs(id,name,created_by) VALUES(?,?,?)").bind(id, name, user.id).run();
-   await DB.prepare("INSERT INTO hefz_program_weeks(program_id,week_index,title,days) SELECT ?::text, e.ord::int, e.v->>'title', e.v->'days' FROM jsonb_array_elements(?::jsonb) WITH ORDINALITY AS e(v, ord)").bind(id, JSON.stringify(weeks)).run();
-   return Response.json({ ok: true, id, name, weeks: weeks.length }, { status: 201 });
+   try { await DB.prepare("INSERT INTO hefz_program_weeks(program_id,week_index,title,days) SELECT ?::text, e.ord::int, e.v->>'title', e.v->'days' FROM jsonb_array_elements(?::jsonb) WITH ORDINALITY AS e(v, ord)").bind(id, JSON.stringify(weeks)).run(); }
+   catch { await DB.prepare("DELETE FROM hefz_programs WHERE id=?").bind(id).run(); return jsonError("ذخیره‌ی هفته‌های برنامه ناموفق بود و برنامه ثبت نشد. دوباره امتحان کنید.", 500); }
+   // Never claim success on faith: count what is really stored, and roll the half-created program back if it is short.
+   const stored = Number((await DB.prepare("SELECT COUNT(*) AS n FROM hefz_program_weeks WHERE program_id=?").bind(id).first<{ n: number }>())?.n || 0);
+   if (stored !== weeks.length) { await DB.prepare("DELETE FROM hefz_programs WHERE id=?").bind(id).run(); return jsonError(`ذخیره‌ی برنامه ناقص بود (${stored} از ${weeks.length} هفته) و برنامه ثبت نشد. دوباره امتحان کنید.`, 500); }
+   return Response.json({ ok: true, id, name, weeks: stored }, { status: 201 });
   }
 
   if (body.action === "delete") {
@@ -66,6 +70,8 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    }
    const prog = await DB.prepare("SELECT id,name FROM hefz_programs WHERE id=?").bind(programId).first<{ id: string; name: string }>();
    if (!prog) return jsonError("برنامه پیدا نشد.", 404);
+   const wk = Number((await DB.prepare("SELECT COUNT(*) AS n FROM hefz_program_weeks WHERE program_id=?").bind(programId).first<{ n: number }>())?.n || 0);
+   if (!wk) return jsonError("این برنامه هفته‌ای ندارد (خالی است). آن را حذف کنید و دوباره بسازید.", 409);
    const given = clip(body.startDate, 10);
    if (given && !isIsoDate(given)) return jsonError("تاریخ شروع نامعتبر است.");
    const start = saturdayOnOrBefore(given || stockholmToday());   // weeks start on Saturday

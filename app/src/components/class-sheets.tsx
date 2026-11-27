@@ -60,7 +60,7 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
       {programs && !programs.length && <p className="plan-hint">هنوز برنامه‌ای تعریف نشده؛ مدیر باید آن را بسازد.</p>}
       {!!programs?.length && <>
         {d.hasProgram && <p className="plan-hint">برنامه‌ی فعلی: {d.program}</p>}
-        <label>{d.hasProgram ? "تغییر برنامه" : "انتخاب برنامه"}<select value={pick} onChange={e => { setPick(e.target.value); setPickWeek(""); setConfirm(""); }}><option value="">انتخاب برنامه</option>{programs.map(p => <option key={p.id} value={p.id}>{p.name} ({fa(p.weeks)} هفته)</option>)}</select></label>
+        <label>{d.hasProgram ? "تغییر برنامه" : "انتخاب برنامه"}<select value={pick} onChange={e => { setPick(e.target.value); setPickWeek(""); setConfirm(""); }}><option value="">انتخاب برنامه</option>{programs.filter(p => p.weeks > 0).map(p => <option key={p.id} value={p.id}>{p.name} ({fa(p.weeks)} هفته)</option>)}</select></label>
         {pick && <label>آغاز از هفته‌ی (اختیاری)<input type="number" inputMode="numeric" min={1} max={programs.find(p => p.id === pick)?.weeks || 1} value={pickWeek} onChange={e => setPickWeek(e.target.value)} placeholder="۱" /></label>}
         {pick && (d.hasProgram && d.programId !== pick && confirm !== "change"
           ? <button className="primary-wide" disabled={busy} onClick={() => setConfirm("change")}>ذخیره‌ی برنامه</button>

@@ -14,7 +14,10 @@ let client: ReturnType<typeof postgres> | undefined;
 function getClient() {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
-  client ??= postgres(url, { max: 5, idle_timeout: 20, connect_timeout: 10, prepare: false });
+  // postgres.js JSON.stringify()s every value bound to a json/jsonb parameter. Callers here already pass JSON text
+  // (JSON.stringify(...) with `?::jsonb`), which would be double-encoded into a jsonb *string* scalar. Pass strings through as-is.
+  const json = { to: 114, from: [114, 3802], serialize: (x: unknown) => (typeof x === "string" ? x : JSON.stringify(x)), parse: (x: string) => JSON.parse(x) };
+  client ??= postgres(url, { max: 5, idle_timeout: 20, connect_timeout: 10, prepare: false, types: { json } });
   return client;
 }
 function toPostgres(query: string) {
