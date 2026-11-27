@@ -32,3 +32,22 @@ test("displayClassName strips only a leading «کلاس »", () => {
   expect(displayClassName("شهید کلاس دوم")).toBe("شهید کلاس دوم");
   expect(displayClassName("کلاس")).toBe("کلاس");
 });
+
+import { displayTeacherName } from "../src/lib/teacher-name";
+test("displayTeacherName strips leading titles only", () => {
+  expect(displayTeacherName("سرکار خانم احمدی")).toBe("احمدی");
+  expect(displayTeacherName("سرکار‌خانم زهرا رضایی")).toBe("زهرا رضایی");
+  expect(displayTeacherName("سركار خانم احمدی")).toBe("احمدی");
+  expect(displayTeacherName("خانم زهرا رضایی")).toBe("زهرا رضایی");
+  expect(displayTeacherName("استاد محمدی")).toBe("محمدی");
+  expect(displayTeacherName("آقای محمدی")).toBe("محمدی");
+  expect(displayTeacherName("آقاي محمدی")).toBe("محمدی");
+  expect(displayTeacherName("جناب آقای محمدی")).toBe("محمدی");
+  expect(displayTeacherName("سرکار  خانم احمدی")).toBe("احمدی");
+  expect(displayTeacherName("زهرا خانم رضایی")).toBe("زهرا خانم رضایی");
+  expect(displayTeacherName("خانمی")).toBe("خانمی");
+  expect(displayTeacherName("خانم")).toBe("خانم");
+  expect(displayTeacherName("سرکار خانم")).toBe("سرکار خانم");
+  expect(displayTeacherName(undefined)).toBe("");
+  expect(personMatch({ full_name: "الناز", teacher_name: "سرکار خانم احمدی" }, "احمدی")?.reasons).toEqual(["استاد: احمدی"]);
+});

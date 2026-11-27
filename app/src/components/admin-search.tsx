@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { navTo } from "../lib/nav";
-import { displayClassName } from "../lib/teacher-name";
+import { displayClassName, displayTeacherName } from "../lib/teacher-name";
 
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 type Res = { classes: any[]; learners: any[]; teachers: any[]; viaLearners?: any[] };
@@ -45,14 +45,14 @@ export function AdminSearch({ onClose }: { onClose: () => void }) {
       {q && busy && !res && <p className="empty-state">در حال جستجو…</p>}
       {q && none && !busy && <p className="empty-state">نتیجه‌ای پیدا نشد</p>}
       {!!res?.classes.length && <section className="adm-block"><h3>کلاس‌ها</h3>
-        {res.classes.map(c => <button type="button" key={c.id} className="adm-hit" onClick={() => go(c.id, "info")}><b>{displayClassName(c.name)}</b><small>{[lsText(c.level, c.step), c.teachers.length ? "استاد: " + c.teachers.join("، ") : "", fa(c.learners) + " قرآن‌آموز فعال"].filter(Boolean).join(" · ")}</small></button>)}</section>}
+        {res.classes.map(c => <button type="button" key={c.id} className="adm-hit" onClick={() => go(c.id, "info")}><b>{displayClassName(c.name)}</b><small>{[lsText(c.level, c.step), c.teachers.length ? "استاد: " + c.teachers.map(displayTeacherName).join("، ") : "", fa(c.learners) + " قرآن‌آموز فعال"].filter(Boolean).join(" · ")}</small></button>)}</section>}
       {!!res?.learners.length && <section className="adm-block"><h3>قرآن‌آموزان</h3>
-        {res.learners.map((l, i) => <button type="button" key={i} className="adm-hit" onClick={() => go(l.classId, "people", l.name)}><b>{l.name}</b><small>{["کلاس: " + displayClassName(l.className), l.teachers.length ? "استاد: " + l.teachers.join("، ") : ""].filter(Boolean).join(" · ")}</small></button>)}</section>}
+        {res.learners.map((l, i) => <button type="button" key={i} className="adm-hit" onClick={() => go(l.classId, "people", l.name)}><b>{l.name}</b><small>{["کلاس: " + displayClassName(l.className), l.teachers.length ? "استاد: " + l.teachers.map(displayTeacherName).join("، ") : ""].filter(Boolean).join(" · ")}</small></button>)}</section>}
       {!!res?.viaLearners?.length && (() => { const v = res.viaLearners!, open = !res.learners.length || viaOpen; return <section className="adm-block adm-via"><button type="button" className="adm-via-hd" aria-expanded={open} onClick={() => setViaOpen(o => !o)}><span>مطابقت از طریق استاد یا کلاس</span><small>{fa(v.length)} مورد {res.learners.length ? (open ? "▴" : "▾") : ""}</small></button>
-        {open && (viaAll ? v : v.slice(0, 5)).map((l, i) => <button type="button" key={i} className="adm-hit" onClick={() => go(l.classId, "people", l.name)}><b>{l.name}</b><small>{"کلاس: " + displayClassName(l.className)}</small><span className="adm-why">{l.why.join(" · ")}</span></button>)}
+        {open && (viaAll ? v : v.slice(0, 5)).map((l, i) => <button type="button" key={i} className="adm-hit" onClick={() => go(l.classId, "people", l.name)}><b>{l.name}</b><small>{"کلاس: " + displayClassName(l.className)}</small><span className="adm-why">{l.why.map((w: string) => w.startsWith("استاد: ") ? "استاد: " + displayTeacherName(w.slice(7)) : w).join(" · ")}</span></button>)}
         {open && !viaAll && v.length > 5 && <button type="button" className="adm-btn quiet" onClick={() => setViaAll(true)}>نمایش همه ({fa(v.length)})</button>}</section>; })()}
       {!!res?.teachers.length && <section className="adm-block"><h3>اساتید</h3>
-        {res.teachers.map(t => <div key={t.name}><button type="button" className="adm-hit" aria-expanded={tOpen === t.name} onClick={() => setTOpen(tOpen === t.name ? "" : t.name)}><b>{t.name}</b><small>{fa(t.classes.length)} کلاس · {fa(t.learners)} قرآن‌آموز</small></button>
+        {res.teachers.map(t => <div key={t.name}><button type="button" className="adm-hit" aria-expanded={tOpen === t.name} onClick={() => setTOpen(tOpen === t.name ? "" : t.name)}><b>{displayTeacherName(t.name)}</b><small>{fa(t.classes.length)} کلاس · {fa(t.learners)} قرآن‌آموز</small></button>
           {tOpen === t.name && <div className="adm-sub">{t.classes.map((c: any) => <button type="button" key={c.id} className="adm-hit" onClick={() => go(c.id, "info")}><b>{displayClassName(c.name)}</b></button>)}{!t.classes.length && <p className="adm-hint">کلاسی ندارد.</p>}</div>}</div>)}</section>}
     </div>
   </div>;

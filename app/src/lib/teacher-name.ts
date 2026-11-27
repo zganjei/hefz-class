@@ -14,3 +14,7 @@ export const searchNorm = (raw: unknown) => teacherKey(raw).toLowerCase();
 export const searchTokens = (q: string) => searchNorm(q).split(" ").filter(Boolean);
 /** Display only: drop a leading word «کلاس » (normal/ZWNJ space, Arabic ك) so lists read «شهید آرمان علی وردی». Stored names, matching and links keep the real name. «گروه …» and inner «کلاس» are untouched. */
 export const displayClassName = (raw: unknown): string => { const s = String(raw ?? ""); const r = s.replace(/^\s*[کك]لاس[\s‌]+(?=\S)/, ""); return r || s; };
+const SP = "[\\s‌]+", K = "[کك]", Y = "[یي]";
+const DISPLAY_TITLE = new RegExp(`^\\s*(?:سر${K}ار${SP}خانم|جناب${SP}آقا${Y}|جناب${SP}استاد|سر${K}ار|خانم|استاد|آقا${Y}|جناب)${SP}(?=\\S)`);
+/** Display only: drop leading honorific titles («سرکار خانم»، «سرکار»، «خانم»، «استاد»، «آقای»، «جناب») so teachers read as plain names. Handles ZWNJ and Arabic ی/ك. Keeps the original letters of the name; a bare title with no name, or «خانم» elsewhere in the name, is untouched. Stored data, matching and exports keep the raw value. */
+export const displayTeacherName = (raw: unknown): string => { const s = String(raw ?? ""); let r = s; for (let i = 0; i < 3 && DISPLAY_TITLE.test(r); i++) r = r.replace(DISPLAY_TITLE, ""); r = r.trim(); return !r || /^(?:سر[کك]ار|خانم|استاد|آقا[یي]|جناب)$/.test(r) ? s : r; };
