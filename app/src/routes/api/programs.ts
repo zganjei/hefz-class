@@ -2,27 +2,30 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { isIsoDate, stockholmToday, jalaliLabel } from "../../lib/plan.server";
-import { saturdayOnOrBefore } from "../../lib/program.server";
+import { saturdayOnOrBefore, setClassWeek, programForClass } from "../../lib/program.server";
+import { canManageClass } from "../../lib/access.server";
 
 const clip = (v: unknown, max: number) => (typeof v === "string" || typeof v === "number" ? String(v).trim().slice(0, max) : "");
 const strList = (v: unknown, maxItems: number) => (Array.isArray(v) ? v : []).slice(0, maxItems).map(x => clip(x, 200)).filter(Boolean);
 
-/** Admin-only: list, create, delete study programs and assign one to a class. */
+/** Admin: list, create, delete study programs and assign one to any class. Teacher: list program names and assign/detach a program on classes they teach (cannot create or delete programs). */
 export const Route = createFileRoute("/api/programs")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا معلم است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const programs = (await DB.prepare("SELECT p.id,p.name,p.created_at::text AS created_at,(SELECT COUNT(*) FROM hefz_program_weeks w WHERE w.program_id=p.id) AS weeks FROM hefz_programs p ORDER BY p.created_at DESC").all<any>()).results || [];
+  if (user.role === "teacher") return Response.json({ programs: programs.map(p => ({ id: p.id, name: p.name, weeks: Number(p.weeks) })) });   // teachers: names and week counts only
   const classes = (await DB.prepare("SELECT c.id,c.name,c.program_id,c.program_start::text AS program_start,(SELECT COUNT(*) FROM class_members m WHERE m.class_id=c.id) AS member_count FROM classes c ORDER BY c.name").all<any>()).results || [];
   return Response.json({ programs: programs.map(p => ({ ...p, weeks: Number(p.weeks) })), classes: classes.map(c => ({ ...c, member_count: Number(c.member_count), start_label: c.program_start ? jalaliLabel(c.program_start) : null })), defaultStart: saturdayOnOrBefore(stockholmToday()) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا معلم است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, any> | null;
   if (!body) return jsonError("درخواست نامعتبر است.");
+  if (user.role === "teacher" && body.action !== "assign") return jsonError("دسترسی فقط برای مدیر است.", 403);
 
   if (body.action === "create") {
    const name = clip(body.name, 120); if (!name) return jsonError("نام برنامه را بنویسید.");
@@ -54,6 +57,7 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
 
   if (body.action === "assign") {
    const classId = clip(body.classId, 100), programId = clip(body.programId, 100);
+   if (!(await canManageClass(DB, user, classId))) return jsonError("فقط برای کلاس‌های خودتان می‌توانید برنامه تعیین کنید.", 403);
    const cls = await DB.prepare("SELECT id,name FROM classes WHERE id=?").bind(classId).first<{ id: string; name: string }>();
    if (!cls) return jsonError("کلاس پیدا نشد.", 404);
    if (!programId) {   // detach: the class goes back to the global plan
@@ -66,6 +70,12 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    if (given && !isIsoDate(given)) return jsonError("تاریخ شروع نامعتبر است.");
    const start = saturdayOnOrBefore(given || stockholmToday());   // weeks start on Saturday
    await DB.prepare("UPDATE classes SET program_id=?,program_start=? WHERE id=?").bind(programId, start, classId).run();
+   const wn = Number(body.weekNumber);   // optional: start from this program week (shifts the start date, as the class position control does)
+   if (body.weekNumber !== undefined && body.weekNumber !== "" && Number.isFinite(wn)) {
+    const cp = await programForClass(DB, classId), idx = cp ? cp.weeks.findIndex(w => w.week_number === wn) : -1;
+    if (idx < 0) return jsonError("این هفته در برنامه نیست.", 404);
+    if (idx > 0) await setClassWeek(DB, classId, idx, stockholmToday());
+   }
    return Response.json({ ok: true, classId, programId, className: cls.name, programName: prog.name, startDate: start, startLabel: jalaliLabel(start) });
   }
   return jsonError("درخواست نامعتبر است.");

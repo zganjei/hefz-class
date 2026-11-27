@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    digital: exams.filter(e => att.some(a => a.exam_id === e.id && a.user_id === p.userId)).map(e => { const a = att.find(x => x.exam_id === e.id && x.user_id === p.userId)!; return { title: e.title, date: e.exam_date, score: Number(a.score), max: Number(a.max_score) }; }),
    manual: manual.filter(m => (p.registryId && m.registry_id === p.registryId) || (p.userId && m.user_id === p.userId)).map(m => ({ id: m.id, title: m.title, score: Number(m.score), max: m.max_score == null ? null : Number(m.max_score), date: m.score_date, note: m.note || "" })),
   });
-  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
+  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, programId: prog?.programId || "", programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);

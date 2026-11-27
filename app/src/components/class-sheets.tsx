@@ -44,15 +44,34 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
 
 function ClassSheet({ id, user, back }: { id: string; user: User; back: () => void }) {
   const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [programs, setPrograms] = useState<{ id: string; name: string; weeks: number }[] | null>(null), [pick, setPick] = useState(""), [pickWeek, setPickWeek] = useState(""), [confirm, setConfirm] = useState<"" | "change" | "remove">("");
   const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); };
   useEffect(() => { void run(load); }, [id]);
+  useEffect(() => { call("GET", "/api/programs").then(x => setPrograms(x.programs || [])).catch(() => setPrograms([])); }, []);
   if (!d) return <section className="panel"><button className="secondary-action" onClick={back}>← کلاس‌ها</button>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
   return <section className="panel">
     <button className="secondary-action" onClick={back}>← کلاس‌ها</button>
     <h2 style={{ marginTop: 12 }}>{d.name}</h2>
     <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال{d.hasProgram ? " · برنامه: " + d.program + (d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : d.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : " · برنامه‌ای به این کلاس وصل نیست"}</p>
+    <div className="report-form">
+      <h3>برنامه‌ی کلاس</h3>
+      {programs && !programs.length && <p className="plan-hint">هنوز برنامه‌ای تعریف نشده؛ مدیر باید آن را بسازد.</p>}
+      {!!programs?.length && <>
+        {d.hasProgram && <p className="plan-hint">برنامه‌ی فعلی: {d.program}</p>}
+        <label>{d.hasProgram ? "تغییر برنامه" : "انتخاب برنامه"}<select value={pick} onChange={e => { setPick(e.target.value); setPickWeek(""); setConfirm(""); }}><option value="">انتخاب برنامه</option>{programs.map(p => <option key={p.id} value={p.id}>{p.name} ({fa(p.weeks)} هفته)</option>)}</select></label>
+        {pick && <label>آغاز از هفته‌ی (اختیاری)<input type="number" inputMode="numeric" min={1} max={programs.find(p => p.id === pick)?.weeks || 1} value={pickWeek} onChange={e => setPickWeek(e.target.value)} placeholder="۱" /></label>}
+        {pick && (d.hasProgram && d.programId !== pick && confirm !== "change"
+          ? <button className="primary-wide" disabled={busy} onClick={() => setConfirm("change")}>ذخیره‌ی برنامه</button>
+          : <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/programs", { action: "assign", classId: id, programId: pick, ...(pickWeek ? { weekNumber: Number(pickWeek) } : {}) }); setPick(""); setPickWeek(""); setConfirm(""); await load(); setMsg("برنامه‌ی کلاس ذخیره شد ✅"); })}>{confirm === "change" ? "بله، برنامه عوض شود" : "ذخیره‌ی برنامه"}</button>)}
+        {confirm === "change" && <p className="plan-hint">برنامه‌ی کلاس عوض می‌شود و برنامه‌ی روزانه‌ی قرآن‌آموزان از برنامه‌ی تازه می‌آید. ثبت‌های قبلی (تیک‌ها) پاک نمی‌شوند.</p>}
+        {d.hasProgram && (confirm === "remove"
+          ? <><p className="plan-hint">برنامه از کلاس برداشته می‌شود و کلاس به برنامه‌ی عمومی برمی‌گردد. تیک‌ها پاک نمی‌شوند.</p><button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/programs", { action: "assign", classId: id, programId: "" }); setConfirm(""); await load(); setMsg("برنامه از کلاس برداشته شد ✅"); })}>بله، برداشته شود</button></>
+          : <button className="secondary-action" disabled={busy} onClick={() => setConfirm("remove")}>برداشتن برنامه از کلاس</button>)}
+        {confirm && <button className="secondary-action" onClick={() => setConfirm("")}>انصراف</button>}
+      </>}
+    </div>
     {d.hasProgram
       ? <div className="report-form">
           <h3>جایگاه واقعی کلاس</h3>
@@ -64,7 +83,7 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
           <label>هفته‌ی واقعی کلاس<select value={wk} onChange={e => setWk(e.target.value)}><option value="">انتخاب هفته</option>{d.programWeeks.map((w: any) => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>
           <button className="primary-wide" disabled={busy || !wk || String(d.currentWeek?.week_number ?? "") === wk} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, weekNumber: Number(wk) }); await load(); setMsg("جایگاه کلاس ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button>
         </div>
-      : <p className="plan-hint">{user.role === "admin" ? "برای تنظیم هفته‌ی کلاس، اول از «درخواست‌ها» ← «برنامه‌های مطالعه» یک برنامه به این کلاس بدهید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید." : "برای تنظیم هفته‌ی کلاس، مدیر باید اول یک برنامه به این کلاس بدهد. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید."}</p>}
+      : <p className="plan-hint">{user.role === "admin" ? "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید." : "برای تنظیم هفته‌ی کلاس، اول بالا «برنامه‌ی کلاس» را انتخاب کنید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید."}</p>}
     <div className="report-form">
       <label>ترم یا دوره<input value={term} onChange={e => setTerm(e.target.value)} /></label>
       <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
