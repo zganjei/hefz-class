@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { displayClassName, displayClassNames } from "../lib/teacher-name";
 import { Notice } from "./notice";
+import { VideoList, setWatched } from "./videos";
+import type { VideoView } from "../lib/video";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[]; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
-type Week = { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
+type Week = { videos?: VideoView[]; week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 async function call(path: string, body?: unknown, method = "GET") {
   const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
@@ -18,7 +20,7 @@ type Tadabbur = { author: string; series: string; url: string; note?: string; su
 type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; links?: (string | null)[]; tadabbur?: (Tadabbur | null)[]; audio?: (AudioInfo | null)[]; translation?: (TranslationInfo | null)[] };
 type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
 type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
-type Today = { program?: { id: string; name: string } | null; week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
+type Today = { videos?: VideoView[]; program?: { id: string; name: string } | null; week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
 /** Program cells that are not a verse range (exam, review-only week, ...): shown as plain text, never as a tappable verse link. */
 export const isNoteText = (r: string) => !/سوره/.test(r);
 type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
@@ -63,6 +65,11 @@ function TodayChecklist({ rev, onChanged }: { rev: number; onChanged: () => void
     if (range in cache) return;
     try { const d = await call(`/api/plan?verses=${encodeURIComponent(range)}`); setCache(c => ({ ...c, [range]: d.blocks[0] ?? null })); } catch { setCache(c => ({ ...c, [range]: null })); }
   };
+  const watch = async (v: VideoView) => {
+    const next = !v.watched;
+    setData(d => d && { ...d, videos: (d.videos || []).map(x => x.id === v.id ? { ...x, watched: next } : x) });
+    try { await setWatched(v.id, next); setMsg(""); onChanged(); } catch (e: any) { setMsg("ذخیره نشد: " + (e.message || "خطا")); void load(); }
+  };
   if (!data) return msg ? <Notice msg={msg} /> : null;
   if (!data.day || !data.week) return null;
   const day = data.day;
@@ -76,6 +83,7 @@ function TodayChecklist({ rev, onChanged }: { rev: number; onChanged: () => void
     </div>
     {day.future && <p className="plan-hint">این روز هنوز نرسیده است؛ فقط می‌توانید برنامه را ببینید و تیک زدن بعداً ممکن می‌شود.</p>}
     <Notice msg={msg} />
+    {!!data.videos?.length && <VideoList videos={data.videos} onToggle={v => void watch(v)} compact />}
     <div className="m-days">
       {data.items.map(it => <div key={it.key} className={"m-day" + (it.done ? " done" : "")}>
         <label className="m-check"><input type="checkbox" checked={it.done} disabled={day.future} onChange={() => void tick(it)} aria-label={it.label} /><span /></label>
@@ -117,6 +125,11 @@ export function LearnerPlan() {
     setWeeks(ws => ws.map(x => x.week_number !== w.week_number ? x : { ...x, days: x.days.map(y => y.index === d.index ? { ...y, done: !y.done } : y), doneNew: x.doneNew + (d.new ? (d.done ? -1 : 1) : 0) }));
     try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done, programId: program?.id ?? null }, "POST"); setMsg(""); setRev(n => n + 1); } catch (e: any) { setMsg("تیک ذخیره نشد: " + (e.message || "خطا")); void load(); }
   };
+  const watch = async (v: VideoView) => {
+    const next = !v.watched;
+    setWeeks(ws => ws.map(x => ({ ...x, videos: (x.videos || []).map(y => y.id === v.id ? { ...y, watched: next } : y) })));
+    try { await setWatched(v.id, next); setMsg(""); setRev(n => n + 1); } catch (e: any) { setMsg("ذخیره نشد: " + (e.message || "خطا")); void load(); }
+  };
   const curN = weeks.find(x => x.current)?.week_number ?? -1;
   const visible = weeks.filter(w => w.open && (showAll || w.week_number >= curN - 3 || curN < 0));
   const hidden = weeks.filter(w => w.open && w.week_number < curN - 3).length;
@@ -131,9 +144,10 @@ export function LearnerPlan() {
       const isOpen = openWeek === w.week_number && w.open, pct = w.total ? Math.round(100 * w.doneNew / w.total) : 0;
       return <article key={w.week_number} className={"plan-week" + (w.current ? " current" : "") + (!w.open ? " locked" : "")}>
         <button className="plan-week-head" disabled={!w.open} onClick={() => setOpenWeek(isOpen ? null : w.week_number)}>
-          <div><b>هفتهٔ {fa(w.week_number)} · {w.title}</b><small>{pageLabel(w)}{w.current ? " · این هفته" : ""}</small></div>
+          <div><b>هفتهٔ {fa(w.week_number)} · {w.title}</b><small>{pageLabel(w)}{w.current ? " · این هفته" : ""}{w.videos?.length ? ` · ${fa(w.videos.length)} ویدئو` : ""}</small></div>
           {w.open ? <div className="plan-prog"><span>{fa(w.doneNew)} از {fa(w.total)}</span><i><u style={{ width: pct + "%" }} /></i></div> : <span className="plan-lock">🔒 به‌زودی باز می‌شود</span>}
         </button>
+        {isOpen && !!w.videos?.length && <VideoList videos={w.videos} onToggle={v => void watch(v)} />}
         {isOpen && <div className="m-days">
           {w.days.map(d => { const special = d.kind === "class" && d.review.length && isNoteText(d.review[0]) ? d.review[0] : "", review = special ? d.review.slice(1) : d.review; return <div key={d.index} className={"m-day" + (d.done ? " done" : "") + (d.kind !== "new" ? " calm" : "")}>
             <label className="m-check"><input type="checkbox" checked={d.done} disabled={d.future} aria-label={`${d.name} ${d.jdate}`} onChange={() => void tick(w, d)} /><span /></label>
@@ -159,7 +173,7 @@ export function ClassPosition({ hasProgram, status, week, note, onAttach }: { ha
   return <div className="adm-position"><p><i>جایگاه (دستی):</i> <b>{note || "ثبت نشده"}</b></p><p className="plan-hint">برای نمایش هفته، یک برنامه به کلاس وصل کنید.</p>{onAttach && <button type="button" className="secondary-action" onClick={onAttach}>وصل کردن برنامه</button>}</div>;
 }
 
-type Report = { program?: { id: string; name: string } | null; positionNote?: string; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
+type Report = { videos?: VideoView[]; program?: { id: string; name: string } | null; positionNote?: string; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
 type RosterRow = { name: string; registered: boolean; phone: string | null; email: string | null; nationalId: string | null; code: string | null; level: string | null; education: string | null; hifzAmount: string | null; tadabburAmount: string | null; notes: string | null; hefz: { daysDone: number }; scores: { week: number; weekTitle: string; lesson: string; score: number; max: number; passed: boolean }[] };
 type Roster = { program?: { id: string; name: string } | null; className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; programEnded?: boolean; positionNote?: string; sessionsHeld: number | null; rows: RosterRow[] };
 function ClassRoster({ classId }: { classId: string }) {
@@ -208,6 +222,7 @@ export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id
     {data?.program && !fixedClassId && <p className="plan-hint">برنامهٔ کلاس: <b>{data.program.name}</b></p>}
     {data && !data.program && <p className="plan-hint">هفته‌های زیر از برنامهٔ عمومی است، چون برنامه‌ای به این کلاس وصل نیست.</p>}
     {data && <article className="plan-week current"><div className="plan-week-head static"><div><b>هفتهٔ {fa(data.week.week_number)} · {data.week.title}</b><small>{pageLabel(data.week)}</small></div></div>
+      {!!data.videos?.length && <VideoList videos={data.videos} title="ویدئوهای این هفته" compact />}
       <div className="m-members">
         {data.members.map(m => { const doneNew = m.done.filter(i => data.week.newDays.includes(i)).length, all = doneNew === data.week.newDays.length; return <div key={m.id} className="m-member">
           <div className="m-member-top"><b>{m.name}</b><span className={all ? "m-full" : ""}>{fa(doneNew)} از {fa(data.week.newDays.length)}</span></div>

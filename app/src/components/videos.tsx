@@ -36,3 +36,10 @@ export function VideoList({ videos, title = "ویدئوهای تدبر این ه
     </div>)}
   </div>;
 }
+
+/** Persist «دیدم» for the signed-in learner. Throws a Farsi message on failure. */
+export async function setWatched(videoId: string, done: boolean) {
+  const r = await fetch("/api/videos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "watched", videoId, done }) });
+  const d = await r.json().catch(() => ({ error: "پاسخ نامعتبر بود." }));
+  if (!r.ok) throw new Error(d.error || "خطا");
+}
