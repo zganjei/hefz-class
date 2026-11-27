@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { navTo, goBack, useNavSegs } from "../lib/nav";
 import { Notice } from "./notice";
 import { PassMarks } from "./pass-marks";
 
@@ -16,7 +17,10 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 /** آزمون‌های کلاس: staff (inside an opened class, `classId` required) create exams + questions and see scores of THAT class only; learners take each exam once. `classes` is accepted for compatibility and unused. */
 export function Exams({ user, classId, embedded }: { user: User; classes?: unknown; classId?: string; embedded?: boolean }) {
   const staff = user.role !== "memorizer";
-  const [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const segs = useNavSegs(), off = embedded ? 3 : 1, base = segs.slice(0, off);
+  const inView = embedded ? segs[0] === "classes" && segs[2] === "exams" && segs[1] === classId : segs[0] === "exams";
+  const open = inView ? segs[off] || "" : "", setOpen = (id: string) => id ? navTo([...base, id], "push") : goBack(base);
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const Wrap = embedded ? "div" : "section";
   return <Wrap className={embedded ? undefined : "panel"}>
