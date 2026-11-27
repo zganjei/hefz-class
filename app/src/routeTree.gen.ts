@@ -22,6 +22,7 @@ import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
 import { Route as ApiLearningRouteImport } from './routes/api/learning'
 import { Route as ApiPlanRouteImport } from './routes/api/plan'
 import { Route as ApiRegistryRouteImport } from './routes/api/registry'
+import { Route as ApiRegistryClassesRouteImport } from './routes/api/registry-classes'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiStaffRouteImport } from './routes/api/staff'
 import { Route as ApiAuthCredentialsRouteImport } from './routes/api/auth.credentials'
@@ -97,6 +98,11 @@ const ApiRegistryRoute = ApiRegistryRouteImport.update({
   path: '/api/registry',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRegistryClassesRoute = ApiRegistryClassesRouteImport.update({
+  id: '/api/registry-classes',
+  path: '/api/registry-classes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReportsRoute = ApiReportsRouteImport.update({
   id: '/api/reports',
   path: '/api/reports',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
+  '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
+  '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/api/learning': typeof ApiLearningRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/registry': typeof ApiRegistryRoute
+  '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/api/learning'
     | '/api/plan'
     | '/api/registry'
+    | '/api/registry-classes'
     | '/api/reports'
     | '/api/staff'
     | '/api/auth/credentials'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/api/learning'
     | '/api/plan'
     | '/api/registry'
+    | '/api/registry-classes'
     | '/api/reports'
     | '/api/staff'
     | '/api/auth/credentials'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/api/learning'
     | '/api/plan'
     | '/api/registry'
+    | '/api/registry-classes'
     | '/api/reports'
     | '/api/staff'
     | '/api/auth/credentials'
@@ -305,6 +317,7 @@ export interface RootRouteChildren {
   ApiLearningRoute: typeof ApiLearningRoute
   ApiPlanRoute: typeof ApiPlanRoute
   ApiRegistryRoute: typeof ApiRegistryRoute
+  ApiRegistryClassesRoute: typeof ApiRegistryClassesRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
   ApiStaffRoute: typeof ApiStaffRoute
   ApiAuthCredentialsRoute: typeof ApiAuthCredentialsRoute
@@ -408,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRegistryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/registry-classes': {
+      id: '/api/registry-classes'
+      path: '/api/registry-classes'
+      fullPath: '/api/registry-classes'
+      preLoaderRoute: typeof ApiRegistryClassesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reports': {
       id: '/api/reports'
       path: '/api/reports'
@@ -500,6 +520,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLearningRoute: ApiLearningRoute,
   ApiPlanRoute: ApiPlanRoute,
   ApiRegistryRoute: ApiRegistryRoute,
+  ApiRegistryClassesRoute: ApiRegistryClassesRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
   ApiStaffRoute: ApiStaffRoute,
   ApiAuthCredentialsRoute: ApiAuthCredentialsRoute,
