@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import { teacherKey, isNoTeacher } from "../lib/teacher-name";
 
 type Kind = "student" | "teacher" | "supporter";
-type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null };
+type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null; sources?: string[]; learners?: number; has_account?: boolean; derived?: boolean; readonly?: boolean };
 
 const KIND_FA: Record<Kind, string> = { student: "قرآن‌آموزان", teacher: "اساتید", supporter: "پشتیبان‌ها" };
 const MEMB_LABEL: Record<string, string> = { in_class: "در کلاس ✓", to_add: "آماده‌ی ثبت در کلاس", no_account: "هنوز وارد نشده", no_class: "کلاس نامشخص", removed: "از کلاس برداشته شد" };
@@ -96,9 +97,11 @@ function parseWorkbook(wb: XLSX.WorkBook, fileName = ""): { rows: Person[]; shee
   return { rows: out, sheets };
 }
 
-function toCsv(rows: Person[], cols: string[]) {
+const srcLabel = (r: Person) => (r.sources || []).map(x => x === "account" ? "حساب کاربری" : x === "registry" ? "ثبت‌شده در دفتر" : "از فهرست قرآن‌آموزان").join(" + ");
+const accLabel = (r: Person) => r.has_account ? "وارد شده ✓" : "هنوز وارد نشده";
+function toCsv(rows: Person[], cols: string[], withSource = false) {
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  return "﻿" + [cols.map(c => esc(LABELS[c])).join(","), ...rows.map(r => cols.map(c => esc((r as any)[c])).join(","))].join("\n");
+  return "﻿" + [cols.map(c => esc(LABELS[c])).concat(withSource ? [esc("منبع"), esc("وضعیت ورود"), esc("تعداد قرآن‌آموز")] : []).join(","), ...rows.map(r => cols.map(c => esc((r as any)[c])).concat(withSource ? [esc(srcLabel(r)), esc(accLabel(r)), esc(r.learners || 0)] : []).join(","))].join("\n");
 }
 function download(name: string, text: string) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
 const countBy = (rows: Person[], f: (p: Person) => string) => { const m: Record<string, number> = {}; rows.forEach(r => { const k = f(r) || "نامشخص"; m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
@@ -115,13 +118,14 @@ export function Registry() {
   const [imp, setImp] = useState<{ rows: Person[]; sheets: string[]; file: string } | null>(null);
   const [impKind, setImpKind] = useState<Kind>("student");
   const [memb, setMemb] = useState<Record<string, string>>({});
+  const [noTeacher, setNoTeacher] = useState(0);
   const loadMemb = () => fetch("/api/registry-members").then(r => r.ok ? r.json() : null).then(d => { if (d?.status) setMemb(d.status); }).catch(() => {});
-  const load = () => { void loadMemb(); return api().then(d => setAll(d.people || [])).catch(e => setMsg(e.message)); };
+  const load = () => { void loadMemb(); return api().then(d => { setAll(d.people || []); setNoTeacher(d.noTeacher || 0); }).catch(e => setMsg(e.message)); };
   useEffect(() => { void load(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message || "خطا"); } finally { setBusy(false); } };
   const kind = (tab === "student" || tab === "teacher" || tab === "supporter") ? tab : null;
-  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || p.class_name === cls) && (!q || Object.values(p).some(v => typeof v === "string" && v.includes(q)))), [all, kind, cls, q]);
-  const classes = useMemo(() => Array.from(new Set(all.filter(p => p.kind === kind).map(p => p.class_name || "").filter(Boolean))), [all, kind]);
+  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && (!q || Object.values(p).some(v => typeof v === "string" && v.includes(q)))), [all, kind, cls, q]);
+  const classes = useMemo(() => Array.from(new Set(all.filter(p => p.kind === kind).flatMap(p => (p.class_name || "").split("،").map(x => x.trim())).filter(Boolean))), [all, kind]);
   const students = all.filter(p => p.kind === "student"), active = students.filter(p => p.status !== "inactive");
 
   const onFile = async (f: File | undefined) => {
@@ -140,10 +144,11 @@ export function Registry() {
         <input placeholder="جستجو…" value={q} onChange={e => setQ(e.target.value)} />
         {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{classes.map(c => <option key={c}>{c}</option>)}</select>}
       </div>
-      <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind]))}>خروجی اکسل</button></div>
+      <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind], kind === "teacher"))}>خروجی اکسل</button></div>
       {!list.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
-      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
+      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => p.readonly ? setMsg(p.derived ? "این نام از فهرست قرآن‌آموزان آمده است؛ برای ثبت اطلاعات «افزودن» بزنید." : "این استاد از «حساب‌ها» آمده است؛ برای ویرایش به تب «حساب‌ها» بروید.") : setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "teacher" && <><small className={"memb-badge " + (p.has_account ? "in_class" : "")}>{accLabel(p)}</small><small className="memb-badge">{srcLabel(p)}{p.learners ? ` · ${p.learners} قرآن‌آموز` : ""}</small></>}{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
       <small className="reg-count">{list.length} مورد</small>
+      {kind === "teacher" && noTeacher > 0 && <small className="reg-count" style={{ opacity: .6 }}>بدون استاد: {noTeacher} قرآن‌آموز</small>}
     </>}
 
     {kind && edit && <form className="report-form" onSubmit={e => { e.preventDefault(); void run(async () => { await api({ action: "save", kind, person: edit }); setEdit(null); await load(); }); }}>
@@ -156,7 +161,7 @@ export function Registry() {
 
     {tab === "stats" && <div className="reg-stats">
       <div className="desk-summary"><b>قرآن‌آموزان فعال: {active.length} از {students.length}</b><small>اساتید: {all.filter(p => p.kind === "teacher").length} · پشتیبان‌ها: {all.filter(p => p.kind === "supporter").length}</small></div>
-      {([["به تفکیک سطح", (p: Person) => p.level || ""], ["به تفکیک کلاس", (p: Person) => p.class_name || ""], ["به تفکیک استاد", (p: Person) => p.teacher_name || ""], ["به تفکیک تحصیلات", (p: Person) => p.education || ""]] as const).map(([t, f]) => <div className="desk-summary" key={t}><b>{t}</b>{countBy(active, f).map(([k, n]) => <div className="desk-row" key={k}><span>{k}</span><small>{n} نفر</small><i style={{ display: "block", height: 6, borderRadius: 3, background: "var(--bg-dce7da, #dce7da)", overflow: "hidden" }}><u style={{ display: "block", height: "100%", width: Math.round(100 * n / Math.max(1, active.length)) + "%", background: "var(--progress-fill)" }} /></i></div>)}</div>)}
+      {([["به تفکیک سطح", (p: Person) => p.level || ""], ["به تفکیک کلاس", (p: Person) => p.class_name || ""], ["به تفکیک استاد", (p: Person) => isNoTeacher(p.teacher_name) ? "" : teacherKey(p.teacher_name)], ["به تفکیک تحصیلات", (p: Person) => p.education || ""]] as const).map(([t, f]) => <div className="desk-summary" key={t}><b>{t}</b>{countBy(active, f).map(([k, n]) => <div className="desk-row" key={k}><span>{k}</span><small>{n} نفر</small><i style={{ display: "block", height: 6, borderRadius: 3, background: "var(--bg-dce7da, #dce7da)", overflow: "hidden" }}><u style={{ display: "block", height: "100%", width: Math.round(100 * n / Math.max(1, active.length)) + "%", background: "var(--progress-fill)" }} /></i></div>)}</div>)}
       <button type="button" disabled={!students.length} onClick={() => download("amar-quran-amuzan.csv", toCsv(active, FORM_FIELDS.student))}>خروجی اکسل قرآن‌آموزان فعال</button>
     </div>}
 
