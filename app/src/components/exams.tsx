@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { Notice } from "./notice";
 import { PassMarks } from "./pass-marks";
-import { LevelStepFilter, matchesLS, lsOf } from "./level-step";
-import { lsLabel } from "../lib/level-step";
 
-type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
-const clsName = (c: Cls) => { const x = lsOf(c); return c.name + (lsLabel(x.level, x.step) ? " · " + lsLabel(x.level, x.step) : ""); };
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
 const KIND: Record<string, string> = { hifz: "حسن حفظ", tadabbur: "تدبر", vocabulary: "لغت", final: "عمومی" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -17,37 +13,34 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
   return d;
 }
 
-/** آزمون‌های کلاس: staff create exams + questions and see scores; learners take each exam once. */
-export function Exams({ user, classes, classId, embedded }: { user: User; classes: Cls[]; classId?: string; embedded?: boolean }) {
+/** آزمون‌های کلاس: staff (inside an opened class, `classId` required) create exams + questions and see scores of THAT class only; learners take each exam once. `classes` is accepted for compatibility and unused. */
+export function Exams({ user, classId, embedded }: { user: User; classes?: unknown; classId?: string; embedded?: boolean }) {
   const staff = user.role !== "memorizer";
-  const [lv, setLv] = useState(""), [st, setSt] = useState(""), [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const Wrap = embedded ? "div" : "section";
-  const scoped = classId ? classes.filter(c => c.id === classId) : classes;
   return <Wrap className={embedded ? undefined : "panel"}>
     {!embedded && <h2>آزمون‌ها</h2>}
     {open ? (staff ? <StaffExam id={open} back={() => setOpen("")} run={run} busy={busy} /> : <TakeExam id={open} back={() => setOpen("")} run={run} busy={busy} />)
-      : (staff ? <>{!classId && <LevelStepFilter classes={scoped} level={lv} step={st} setLevel={setLv} setStep={setSt} />}<PassMarks classes={scoped.filter(c => matchesLS(c, lv, st))} say={setMsg} /><StaffList classes={scoped.filter(c => matchesLS(c, lv, st))} openExam={setOpen} run={run} busy={busy} /></> : <LearnerList openExam={setOpen} run={run} />)}
+      : (staff ? (classId ? <><PassMarks classId={classId} say={setMsg} /><StaffList classId={classId} openExam={setOpen} run={run} busy={busy} /></> : <p className="empty-state">اول یک کلاس را باز کنید.</p>) : <LearnerList openExam={setOpen} run={run} />)}
     <Notice msg={msg} />
   </Wrap>;
 }
 
 type RunP = { run: (fn: () => Promise<void>) => Promise<void>; busy: boolean };
 
-function StaffList({ classes, openExam, run, busy }: { classes: Cls[]; openExam: (id: string) => void } & RunP) {
-  const [exams, setExams] = useState<any[]>([]), [classId, setClassId] = useState(""), [title, setTitle] = useState(""), [date, setDate] = useState("");
+function StaffList({ classId, openExam, run, busy }: { classId: string; openExam: (id: string) => void } & RunP) {
+  const [exams, setExams] = useState<any[]>([]), [title, setTitle] = useState(""), [date, setDate] = useState("");
   const load = () => run(async () => { setExams((await call("GET", "/api/exams")).exams || []); });
   useEffect(() => { void load(); }, []);
-  useEffect(() => { if (!classId && classes.length === 1) setClassId(classes[0].id); }, [classes]);
   return <>
     <div className="report-form">
       <h3>آزمون جدید</h3>
-      <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{clsName(c)}</option>)}</select></label>
       <label>عنوان آزمون<input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثلاً آزمون گام اول" /></label>
       <label>تاریخ (اختیاری)<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-      <button className="primary-wide" disabled={busy || !classId || !title.trim()} onClick={() => void run(async () => { const r = await call("POST", "/api/exams", { action: "create_exam", classId, title, date }); setTitle(""); setDate(""); openExam(r.id); })}>ساخت آزمون</button>
+      <button className="primary-wide" disabled={busy || !title.trim()} onClick={() => void run(async () => { const r = await call("POST", "/api/exams", { action: "create_exam", classId, title, date }); setTitle(""); setDate(""); openExam(r.id); })}>ساخت آزمون</button>
     </div>
-    {exams.filter(e => classes.some(c => c.id === e.class_id)).map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{e.class_name} · {fa(e.questions)} سؤال · {fa(e.attempts)} پاسخ</span><button className="secondary-action" onClick={() => openExam(e.id)}>باز کردن</button></div>)}
+    {exams.filter(e => e.class_id === classId).map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{fa(e.questions)} سؤال · {fa(e.attempts)} پاسخ</span><button className="secondary-action" onClick={() => openExam(e.id)}>باز کردن</button></div>)}
     {!exams.length && <p className="empty-state">هنوز آزمونی ساخته نشده است.</p>}
   </>;
 }
@@ -60,7 +53,7 @@ function StaffExam({ id, back, run, busy }: { id: string; back: () => void } & R
   const locked = d.attempts.length > 0;
   return <>
     <button className="secondary-action" onClick={back}>→ همه‌ی آزمون‌ها</button>
-    <h3>{d.exam.title}</h3><p className="plan-hint">{d.exam.class_name}{d.exam.exam_date ? " · " + d.exam.exam_date : ""}</p>
+    <h3>{d.exam.title}</h3>{d.exam.exam_date && <p className="plan-hint">{d.exam.exam_date}</p>}
     <h3>سؤال‌ها ({fa(d.questions.length)})</h3>
     {d.questions.map((q: any, i: number) => <div className="simple-row" key={q.id}><b>{fa(i + 1)}. {q.prompt}</b><span>{KIND[q.kind]} · {fa(q.points)} نمره · پاسخ: {q.answer_key}{q.choices?.length ? " · گزینه‌ها: " + q.choices.join("، ") : ""}</span>{!locked && <button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/exams", { action: "delete_question", id: q.id }); await load(); })}>حذف</button>}</div>)}
     {!d.questions.length && <p className="empty-state">هنوز سؤالی نیست.</p>}
