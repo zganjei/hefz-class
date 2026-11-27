@@ -18,7 +18,7 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const load = async () => setCards((await call("GET", "/api/class-sheet")).classes);
   useEffect(() => { void run(load); }, []);
-  if (open) return <ClassSheet id={open} back={() => { setOpen(""); void run(load); }} />;
+  if (open) return <ClassSheet id={open} user={user} back={() => { setOpen(""); void run(load); }} />;
   return <section className="panel">
     <h2>کلاس‌های من</h2>
     {user.role === "teacher" && <div className="report-form">
@@ -32,25 +32,39 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
     {cards?.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => setOpen(c.id)}>
       <b>{c.name}{c.term ? " · " + c.term : ""}</b>
       <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · معلم: " + c.teacher : ""}</span>
-      {c.positionNote && <span>جایگاه: {c.positionNote}</span>}
-      <span>{c.program ? "برنامه: " + c.program : "برنامه‌ی عمومی"}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) : ""}</span>
+      {c.hasProgram
+        ? <span>برنامه: {c.program}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده"}</span>
+        : <span>جایگاه: {c.positionNote || "ثبت نشده"} · برنامه‌ای به این کلاس وصل نیست</span>}
+      {c.hasProgram && c.positionNote && <span>یادداشت جایگاه: {c.positionNote}</span>}
     </button>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
     {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
   </section>;
 }
 
-function ClassSheet({ id, back }: { id: string; back: () => void }) {
+function ClassSheet({ id, user, back }: { id: string; user: User; back: () => void }) {
   const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState("");
+  const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
-  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); setTerm(x.term); setPos(x.positionNote); };
+  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); };
   useEffect(() => { void run(load); }, [id]);
   if (!d) return <section className="panel"><button className="secondary-action" onClick={back}>← کلاس‌ها</button>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
   return <section className="panel">
     <button className="secondary-action" onClick={back}>← کلاس‌ها</button>
     <h2 style={{ marginTop: 12 }}>{d.name}</h2>
-    <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال · {d.program ? "برنامه: " + d.program : "برنامه‌ی عمومی"}{d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : ""}</p>
+    <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال{d.hasProgram ? " · برنامه: " + d.program + (d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : d.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : " · برنامه‌ای به این کلاس وصل نیست"}</p>
+    {d.hasProgram
+      ? <div className="report-form">
+          <h3>جایگاه واقعی کلاس</h3>
+          <p className="plan-hint">اگر کلاس در عمل جلوتر یا عقب‌تر از تاریخ برنامه است، هفته‌ی واقعی را اینجا بگذارید. برنامه‌ی روزانه‌ی قرآن‌آموزان هم از همین هفته ادامه پیدا می‌کند.</p>
+          <div className="inline-form">
+            <button className="secondary-action" disabled={busy || d.status === "none"} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: -1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی قبل</button>
+            <button className="secondary-action" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, delta: 1 }); await load(); setMsg("جایگاه کلاس تغییر کرد ✅"); })}>هفته‌ی بعد</button>
+          </div>
+          <label>هفته‌ی واقعی کلاس<select value={wk} onChange={e => setWk(e.target.value)}><option value="">انتخاب هفته</option>{d.programWeeks.map((w: any) => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>
+          <button className="primary-wide" disabled={busy || !wk || String(d.currentWeek?.week_number ?? "") === wk} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, weekNumber: Number(wk) }); await load(); setMsg("جایگاه کلاس ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button>
+        </div>
+      : <p className="plan-hint">{user.role === "admin" ? "برای تنظیم هفته‌ی کلاس، اول از «درخواست‌ها» ← «برنامه‌های مطالعه» یک برنامه به این کلاس بدهید. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید." : "برای تنظیم هفته‌ی کلاس، مدیر باید اول یک برنامه به این کلاس بدهد. تا آن موقع جایگاه کلاس را در کادر «جایگاه فعلی کلاس» بنویسید."}</p>}
     <div className="report-form">
       <label>ترم یا دوره<input value={term} onChange={e => setTerm(e.target.value)} /></label>
       <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>

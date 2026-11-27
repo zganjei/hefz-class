@@ -2,21 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { TEACHES_CLASS_SQL, canManageClass } from "../../lib/access.server";
-import { addDays, stockholmToday } from "../../lib/plan.server";
-import { programForClass } from "../../lib/program.server";
+import { stockholmToday } from "../../lib/plan.server";
+import { programForClass, positionOf, setClassWeek } from "../../lib/program.server";
 import { classPeople, personHistory, registryStudents, type Person } from "../../lib/class-people.server";
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 const numOrNull = (v: unknown) => { if (v === "" || v == null) return null; const n = Number(String(v).replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace("٫", ".").replace(",", ".")); return Number.isFinite(n) ? n : NaN; };
 
-/** Where a class is in its program today (program name + current week), the same rule as گزارش‌ها. */
-async function programState(DB: any, classId: string, globalWeeks: any[], today: string) {
-  const prog = await programForClass(DB, classId);
-  const weeks: { week_number: number; title: string; start_date: string | null }[] = prog ? prog.weeks : globalWeeks;
-  const dated = weeks.filter(w => w.start_date && w.start_date <= today), last = dated.length ? dated[dated.length - 1] : null;
-  const current = last && !(prog && today > addDays(last.start_date!, 6)) ? { week_number: last.week_number, title: last.title } : null;
-  return { program: prog ? prog.name : null, currentWeek: current };
+/** Where a class is in its own program today. Without a program there is no position (the teacher's free-text note is shown instead). */
+async function programState(DB: any, classId: string, today: string) {
+  const pos = positionOf(await programForClass(DB, classId), today);
+  return { program: pos.program, hasProgram: pos.hasProgram, status: pos.status, weekCount: pos.weekCount, currentWeek: pos.currentWeek };
 }
 
 /** Teacher (own classes) and admin (all): the class sheets. GET without classId lists the cards; with classId returns one sheet (active learners, info, scores). Contains no national IDs. */
@@ -26,7 +23,6 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const today = stockholmToday(), classId = new URL(request.url).searchParams.get("classId");
-  const globalWeeks = (await DB.prepare("SELECT week_number,title,start_date::text AS start_date FROM hefz_plan_weeks ORDER BY week_number").all<any>()).results || [];
   const registry = await registryStudents(DB);
 
   if (!classId) {
@@ -34,7 +30,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    const rows = (user.role === "admin" ? await DB.prepare(`${sel} ORDER BY c.created_at DESC`).all<any>() : await DB.prepare(`${sel} WHERE ${TEACHES_CLASS_SQL} ORDER BY c.created_at DESC`).bind(user.id, user.id).all<any>()).results || [];
    const cards = [];
    for (const c of rows) {
-    const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, globalWeeks, today);
+    const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, today);
     cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
    }
    return Response.json({ classes: cards });
@@ -43,7 +39,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
   const cp = await classPeople(DB, classId, registry); if (!cp) return jsonError("کلاس پیدا نشد.", 404);
   const meta = await DB.prepare("SELECT term,position_note FROM classes WHERE id=?").bind(classId).first<any>();
-  const st = await programState(DB, classId, globalWeeks, today);
+  const st = await programState(DB, classId, today), prog = await programForClass(DB, classId);
   const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(classId).all<any>()).results || [];
   const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(classId).all<any>()).results || [];
   const manual = (await DB.prepare("SELECT id,registry_id,user_id,title,score,max_score,score_date::text AS score_date,note FROM class_manual_scores WHERE class_id=? ORDER BY score_date NULLS LAST, created_at").bind(classId).all<any>()).results || [];
@@ -56,7 +52,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    digital: exams.filter(e => att.some(a => a.exam_id === e.id && a.user_id === p.userId)).map(e => { const a = att.find(x => x.exam_id === e.id && x.user_id === p.userId)!; return { title: e.title, date: e.exam_date, score: Number(a.score), max: Number(a.max_score) }; }),
    manual: manual.filter(m => (p.registryId && m.registry_id === p.registryId) || (p.userId && m.user_id === p.userId)).map(m => ({ id: m.id, title: m.title, score: Number(m.score), max: m.max_score == null ? null : Number(m.max_score), date: m.score_date, note: m.note || "" })),
   });
-  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
+  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", ...st, programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
@@ -76,6 +72,17 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   if (action === "update-class") {
    await DB.prepare("UPDATE classes SET term=?,position_note=? WHERE id=?").bind(clip(body.term, 80) || null, clip(body.positionNote, 300) || null, classId).run();
    return Response.json({ ok: true });
+  }
+
+  if (action === "set-position") {   // the class's REAL week in its program: shifts the program start so that today falls in that week
+   const prog = await programForClass(DB, classId);
+   if (!prog) return jsonError("برنامه‌ای به این کلاس وصل نیست؛ مدیر باید اول یک برنامه به کلاس بدهد.", 409);
+   const n = prog.weeks.length, today = stockholmToday(), cur = positionOf(prog, today).weekIndex;
+   let target: number;
+   if (body.delta !== undefined) { const d = Number(body.delta); if (d !== 1 && d !== -1) return jsonError("درخواست نامعتبر است."); target = Math.max(0, Math.min(n - 1, cur + d)); }
+   else { const wn = Number(body.weekNumber); target = prog.weeks.findIndex(w => w.week_number === wn); if (target < 0) return jsonError("این هفته در برنامه‌ی کلاس نیست.", 404); }
+   await setClassWeek(DB, classId, target, today);
+   return Response.json({ ok: true, ...(await programState(DB, classId, today)) });
   }
 
   if (action === "add-score") {
