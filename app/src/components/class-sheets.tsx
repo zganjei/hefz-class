@@ -22,6 +22,31 @@ const weekLine = (c: any) => c.hasProgram
   ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") + " · برنامه: " + c.program
   : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده");
 
+const DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"];
+const dayTimeText = (c: { classDay?: string; classTime?: string }) => [c.classDay, c.classTime].filter(Boolean).join(" · ");
+const splitTime = (t: string) => { const m = /^(.*?)\s*تا\s*(.*)$/.exec(t || ""); return m ? [m[1], m[2]] : [t || "", ""]; };
+
+/** «روز و ساعت کلاس»: weekday dropdown (or free text under «چند روز / دیگر») + from–to time. The registry's value is only a suggestion, never auto-copied. */
+function DayTimeEditor({ day, time, hint, busy, onSave }: { day: string; time: string; hint?: { day: string; time: string } | null; busy: boolean; onSave: (day: string, time: string) => void }) {
+  const init = (dv: string, tv: string) => ({ sel: !dv ? "" : DAYS.includes(dv) ? dv : "other", other: !dv || DAYS.includes(dv) ? "" : dv, from: splitTime(tv)[0], to: splitTime(tv)[1] });
+  const [f, setF] = useState(() => init(day, time));
+  useEffect(() => { setF(init(day, time)); }, [day, time]);
+  const dayV = f.sel === "other" ? f.other.trim() : f.sel, timeV = f.from.trim() && f.to.trim() ? f.from.trim() + " تا " + f.to.trim() : f.from.trim();
+  const same = dayV === day && timeV === time;
+  return <div className="report-form">
+    <h3>روز و ساعت کلاس</h3>
+    <p className="plan-hint">فعلی: {dayTimeText({ classDay: day, classTime: time }) || "ثبت نشده"}</p>
+    {!day && !time && hint && <p className="plan-hint">از دفتر: {dayTimeText({ classDay: hint.day, classTime: hint.time })} <button type="button" className="secondary-action" disabled={busy} onClick={() => onSave(hint.day, hint.time)}>استفاده</button></p>}
+    <label>روز<select value={f.sel} onChange={e => setF({ ...f, sel: e.target.value })}><option value="">انتخاب روز</option>{DAYS.map(x => <option key={x} value={x}>{x}</option>)}<option value="other">چند روز / دیگر</option></select></label>
+    {f.sel === "other" && <label>روزها (متن آزاد)<input value={f.other} maxLength={40} onChange={e => setF({ ...f, other: e.target.value })} placeholder="مثلاً شنبه و دوشنبه" /></label>}
+    <div className="inline-form">
+      <label>از ساعت<input value={f.from} maxLength={18} onChange={e => setF({ ...f, from: e.target.value })} placeholder="۱۴" /></label>
+      <label>تا ساعت<input value={f.to} maxLength={18} onChange={e => setF({ ...f, to: e.target.value })} placeholder="۱۶" /></label>
+    </div>
+    <button className="secondary-action" disabled={busy || same || dayV.length > 40 || timeV.length > 40} onClick={() => onSave(dayV, timeV)}>ذخیره‌ی روز و ساعت</button>
+  </div>;
+}
+
 type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
 const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"]];
 
@@ -47,7 +72,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
         <h2>{card.name}</h2>
         <LevelStepChips level={card.level} step={card.step} />
-        <p className="plan-hint">{[card.teacher && isAdmin ? "استاد: " + card.teacher : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
+        <p className="plan-hint">{[dayTimeText(card), card.teacher && isAdmin ? "استاد: " + card.teacher : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
       </header>}
       <div className="m-seg" role="tablist" aria-label="بخش‌های کلاس">{TABS.map(([k, t]) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{t}</button>)}</div>
       {sub === "info" && <ClassSheet mode="info" id={open} user={user} onLoaded={() => void refresh()} />}
@@ -72,7 +97,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
       <b>{c.name}</b>
       <LevelStepChips level={c.level} step={c.step} />
-      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
+      <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), dayTimeText(c), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
     </div>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
     {cards && !!cards.length && !shown.length && <p className="empty-state">کلاسی با این سطح و گام نیست.</p>}
@@ -119,11 +144,9 @@ function ClassSheet({ id, user, mode, classes, onLoaded, onAttach }: { id: strin
         {confirm && <button className="secondary-action" onClick={() => setConfirm("")}>انصراف</button>}
       </>}
     </div>
-    </>}
-    {mode === "people" && <details className="adm-block"><summary><b>پیشرفت هفتگی</b></summary>
     <div className="report-form">
       <h3>جایگاه کلاس</h3>
-      <ClassPosition hasProgram={d.hasProgram} status={d.status} week={d.currentWeek} note={d.positionNote} onAttach={onAttach} />
+      {d.hasProgram && <p className="adm-position"><i>جایگاه فعلی:</i> <b>{d.currentWeek ? `هفتهٔ ${fa(d.currentWeek.week_number)} · ${d.currentWeek.title}` : d.status === "ended" ? "برنامه به پایان رسیده است" : "هنوز شروع نشده است"}</b></p>}
       {d.hasProgram && <>
         <p className="plan-hint">اگر کلاس در عمل جلوتر یا عقب‌تر از تاریخ برنامه است، هفته را اینجا تغییر دهید؛ برنامه‌ی روزانه‌ی قرآن‌آموزان هم از همین هفته ادامه پیدا می‌کند.</p>
         <div className="inline-form">
@@ -134,8 +157,12 @@ function ClassSheet({ id, user, mode, classes, onLoaded, onAttach }: { id: strin
         <button className="primary-wide" disabled={busy || !wk || String(d.currentWeek?.week_number ?? "") === wk} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-position", classId: id, weekNumber: Number(wk) }); await load(); setMsg("جایگاه کلاس ذخیره شد ✅"); })}>ذخیره‌ی هفته</button>
       </>}
       {!d.hasProgram && <><label>جایگاه (دستی)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
-        <button className="secondary-action" disabled={busy || pos === d.positionNote} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button></>}
+        <button className="secondary-action" disabled={busy || pos === d.positionNote} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button><p className="plan-hint">برای نمایش هفته، یک برنامه به کلاس وصل کنید.</p></>}
     </div>
+    <DayTimeEditor day={d.classDay} time={d.classTime} hint={d.dayTimeHint} busy={busy} onSave={(classDay, classTime) => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, classDay, classTime }); await load(); setMsg("روز و ساعت کلاس ذخیره شد ✅"); })} />
+    </>}
+    {mode === "people" && <details className="adm-block"><summary><b>پیشرفت هفتگی</b></summary>
+    <ClassPosition hasProgram={d.hasProgram} status={d.status} week={d.currentWeek} note={d.positionNote} onAttach={onAttach} />
       <TeacherPlan key={d.currentWeek?.week_number ?? "x"} classes={classes || []} fixedClassId={id} />
     </details>}
     {mode === "people" && <>
