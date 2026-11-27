@@ -15,7 +15,7 @@ export function StaffAccounts() {
   const [name, setName] = useState(""), [phone, setPhone] = useState(""), [role, setRole] = useState("teacher");
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState(""), [made, setMade] = useState<{ phone: string; password: string } | null>(null);
   type Acc = { id: string; display_name: string; role: "admin" | "teacher" };
-  const [accounts, setAccounts] = useState<Acc[]>([]), [me, setMe] = useState(""), [confirmId, setConfirmId] = useState("");
+  const [accounts, setAccounts] = useState<Acc[]>([]), [me, setMe] = useState(""), [confirmId, setConfirmId] = useState(""), [editId, setEditId] = useState(""), [editName, setEditName] = useState("");
   const loadAccounts = async () => { const r = await fetch("/api/staff?accounts=1"); const d = await r.json().catch(() => ({})); if (r.ok) { setAccounts(d.accounts || []); setMe(d.me || ""); } };
   useEffect(() => { void loadAccounts(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
@@ -38,8 +38,11 @@ export function StaffAccounts() {
       <h3>حساب‌های استاد و مدیر</h3>
       {accounts.map(a => { const next = a.role === "admin" ? "teacher" : "admin"; const nextFa = next === "admin" ? "مدیر" : "استاد"; const self = a.id === me; return <div key={a.id}>
         <div className="adm-row"><b>{a.display_name}</b><span>{a.role === "admin" ? "مدیر" : "استاد"}</span>
+          {editId !== a.id && <button className="adm-btn quiet sm" disabled={busy} onClick={() => { setEditId(a.id); setEditName(a.display_name); }}>تغییر نام</button>}
           {!self && confirmId !== a.id && <button className="adm-btn quiet sm" disabled={busy} onClick={() => setConfirmId(a.id)}>{next === "admin" ? "تبدیل به مدیر" : "تبدیل به استاد"}</button>}
         </div>
+        {editId === a.id && <div className="adm-block"><label>نام نمایشی<input value={editName} maxLength={60} onChange={e => setEditName(e.target.value)} /></label>
+          <div className="adm-actions"><button className="adm-btn" disabled={busy || editName.trim().length < 2} onClick={() => void run(async () => { await post("/api/staff", { userId: a.id, name: editName }, "PATCH"); setEditId(""); await loadAccounts(); setMsg("نام حساب تغییر کرد ✅"); })}>ذخیره</button><button className="adm-btn quiet" onClick={() => setEditId("")}>انصراف</button></div></div>}
         {confirmId === a.id && <Confirm danger={false} busy={busy} text={next === "admin" ? `${a.display_name} مدیر شود؟ مدیر به همه‌ی کلاس‌ها و درخواست‌ها دسترسی دارد.` : `${a.display_name} استاد شود؟ دسترسی مدیریتی او برداشته می‌شود و فقط به کلاس‌های خودش دسترسی دارد.`} yes={`بله، ${nextFa} شود`} onNo={() => setConfirmId("")} onYes={() => void run(async () => { await post("/api/staff", { userId: a.id, role: next }, "PATCH"); setConfirmId(""); await loadAccounts(); setMsg(`نقش ${a.display_name} به «${nextFa}» تغییر کرد ✅`); })} />}
       </div>; })}
       {!accounts.length && <p className="empty-state">حسابی پیدا نشد.</p>}

@@ -108,6 +108,39 @@ export async function createStaffAccount(request: Request, body: Record<string, 
   return Response.json({ phone, password, role });
 }
 /** Admin changes an existing staff account between teacher and admin. Only users.role changes; class assignments stay. */
+/** Trim, 2-60 chars, no HTML/control characters. Returns the cleaned name or null. */
+export function cleanDisplayName(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const n = v.normalize("NFC").replace(/\s+/g, " ").trim();
+  if ([...n].length < 2 || [...n].length > 60) return null;
+  if (/[<>&"`\u0000-\u001f\u007f]/.test(n)) return null;
+  return n;
+}
+const BAD_NAME = "نام باید ۲ تا ۶۰ نویسه باشد و نباید شامل < > & یا نشانه‌گذاری HTML باشد.";
+/** Signed-in user renames only their own row. */
+export async function setOwnDisplayName(request: Request, body: Record<string, unknown>) {
+  const user = await currentUser(request);
+  if (!user) return jsonError("ابتدا وارد شوید.", 401);
+  const name = cleanDisplayName(body.name);
+  if (!name) return jsonError(BAD_NAME);
+  const { DB } = bindings();
+  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  await DB.prepare("UPDATE users SET display_name=? WHERE id=?").bind(name, user.id).run();
+  return Response.json({ ok: true, user: { ...user, display_name: name } });
+}
+/** Admin renames a teacher/admin account (name only). */
+export async function renameStaff(request: Request, body: Record<string, unknown>) {
+  const { user, response } = await requireRole(request, ["admin"]);
+  if (!user) return response!;
+  const { DB } = bindings();
+  if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
+  const userId = typeof body.userId === "string" ? body.userId : "";
+  const name = cleanDisplayName(body.name);
+  if (!userId || !name) return jsonError(BAD_NAME);
+  const r = await DB.prepare("UPDATE users SET display_name=? WHERE id=? AND active=1 AND role IN ('admin','teacher')").bind(name, userId).run();
+  if (!(r as any)?.meta?.changes && (r as any)?.meta?.changes !== undefined) return jsonError("حساب پیدا نشد.", 404);
+  return Response.json({ ok: true, name });
+}
 export async function changeStaffRole(request: Request, body: Record<string, unknown>) {
   const { user, response } = await requireRole(request, ["admin"]);
   if (!user) return response!;
