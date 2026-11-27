@@ -30,6 +30,7 @@ import { Route as ApiRegistryRouteImport } from './routes/api/registry'
 import { Route as ApiRegistryClassesRouteImport } from './routes/api/registry-classes'
 import { Route as ApiRegistryMembersRouteImport } from './routes/api/registry-members'
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiStaffRouteImport } from './routes/api/staff'
 import { Route as ApiAuthCredentialsRouteImport } from './routes/api/auth.credentials'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
@@ -144,6 +145,11 @@ const ApiReportsRoute = ApiReportsRouteImport.update({
   path: '/api/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStaffRoute = ApiStaffRouteImport.update({
   id: '/api/staff',
   path: '/api/staff',
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/registry-members': typeof ApiRegistryMembersRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/registry-members': typeof ApiRegistryMembersRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/api/registry-classes': typeof ApiRegistryClassesRoute
   '/api/registry-members': typeof ApiRegistryMembersRoute
   '/api/reports': typeof ApiReportsRouteWithChildren
+  '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/registry-classes'
     | '/api/registry-members'
     | '/api/reports'
+    | '/api/search'
     | '/api/staff'
     | '/api/auth/credentials'
     | '/api/auth/login'
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/api/registry-classes'
     | '/api/registry-members'
     | '/api/reports'
+    | '/api/search'
     | '/api/staff'
     | '/api/auth/credentials'
     | '/api/auth/login'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/api/registry-classes'
     | '/api/registry-members'
     | '/api/reports'
+    | '/api/search'
     | '/api/staff'
     | '/api/auth/credentials'
     | '/api/auth/login'
@@ -397,6 +409,7 @@ export interface RootRouteChildren {
   ApiRegistryClassesRoute: typeof ApiRegistryClassesRoute
   ApiRegistryMembersRoute: typeof ApiRegistryMembersRoute
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
+  ApiSearchRoute: typeof ApiSearchRoute
   ApiStaffRoute: typeof ApiStaffRoute
   ApiAuthCredentialsRoute: typeof ApiAuthCredentialsRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
@@ -555,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/staff': {
       id: '/api/staff'
       path: '/api/staff'
@@ -648,6 +668,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRegistryClassesRoute: ApiRegistryClassesRoute,
   ApiRegistryMembersRoute: ApiRegistryMembersRoute,
   ApiReportsRoute: ApiReportsRouteWithChildren,
+  ApiSearchRoute: ApiSearchRoute,
   ApiStaffRoute: ApiStaffRoute,
   ApiAuthCredentialsRoute: ApiAuthCredentialsRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
