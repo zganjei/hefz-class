@@ -18,16 +18,18 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 }
 
 /** آزمون‌های کلاس: staff create exams + questions and see scores; learners take each exam once. */
-export function Exams({ user, classes }: { user: User; classes: Cls[] }) {
+export function Exams({ user, classes, classId, embedded }: { user: User; classes: Cls[]; classId?: string; embedded?: boolean }) {
   const staff = user.role !== "memorizer";
   const [lv, setLv] = useState(""), [st, setSt] = useState(""), [open, setOpen] = useState<string>(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
-  return <section className="panel">
-    <h2>آزمون‌ها</h2>
+  const Wrap = embedded ? "div" : "section";
+  const scoped = classId ? classes.filter(c => c.id === classId) : classes;
+  return <Wrap className={embedded ? undefined : "panel"}>
+    {!embedded && <h2>آزمون‌ها</h2>}
     {open ? (staff ? <StaffExam id={open} back={() => setOpen("")} run={run} busy={busy} /> : <TakeExam id={open} back={() => setOpen("")} run={run} busy={busy} />)
-      : (staff ? <><LevelStepFilter classes={classes} level={lv} step={st} setLevel={setLv} setStep={setSt} /><PassMarks classes={classes.filter(c => matchesLS(c, lv, st))} say={setMsg} /><StaffList classes={classes.filter(c => matchesLS(c, lv, st))} openExam={setOpen} run={run} busy={busy} /></> : <LearnerList openExam={setOpen} run={run} />)}
+      : (staff ? <>{!classId && <LevelStepFilter classes={scoped} level={lv} step={st} setLevel={setLv} setStep={setSt} />}<PassMarks classes={scoped.filter(c => matchesLS(c, lv, st))} say={setMsg} /><StaffList classes={scoped.filter(c => matchesLS(c, lv, st))} openExam={setOpen} run={run} busy={busy} /></> : <LearnerList openExam={setOpen} run={run} />)}
     <Notice msg={msg} />
-  </section>;
+  </Wrap>;
 }
 
 type RunP = { run: (fn: () => Promise<void>) => Promise<void>; busy: boolean };

@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Notice } from "./notice";
-import { LevelStepEditor } from "./level-step";
+import { LevelStepEditor, LevelStepFilter, matchesLS } from "./level-step";
+import { Exams } from "./exams";
+import { ClassReports } from "./class-reports";
+import { TeacherPlan, LearnerPlan } from "./hefz-plan";
 import { lsLabel } from "../lib/level-step";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer" };
@@ -15,16 +18,47 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
   return d;
 }
 
-/** کلاس‌ها: a card per class of the teacher (admin: all), a form for a new class/term, and one sheet per class (active learners, info, digital and hand-entered scores). */
-export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () => void }) {
-  const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [name, setName] = useState(""), [term, setTerm] = useState(""), [pos, setPos] = useState("");
+const weekLine = (c: any) => c.hasProgram
+  ? "برنامه: " + c.program + (c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده")
+  : "جایگاه: " + (c.positionNote || "ثبت نشده") + " · برنامه‌ای به این کلاس وصل نیست";
+
+type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
+const TABS: [string, string][] = [["progress", "پیشرفت"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"]];
+
+/** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs پیشرفت / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
+export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
+  const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [sub, setSub] = useState("progress"), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [name, setName] = useState(""), [term, setTerm] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false);
+  const auto = useRef(true);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
-  const load = async () => setCards((await call("GET", "/api/class-sheet")).classes);
+  const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; setOpen(c[0].id); } };
+  const refresh = () => call("GET", "/api/class-sheet").then(x => setCards(x.classes)).catch(() => {});
   useEffect(() => { void run(load); }, []);
-  if (open) return <ClassSheet id={open} user={user} back={() => { setOpen(""); void run(load); }} />;
+  const isAdmin = user.role === "admin";
+  const seg = isAdmin && !open && <div className="m-seg"><button className={!mine ? "on" : ""} onClick={() => setMine(false)}>کلاس‌ها</button><button className={mine ? "on" : ""} onClick={() => setMine(true)}>برنامه‌ی من</button></div>;
+  if (isAdmin && mine && !open) return <section className="m-plan">{seg}<LearnerPlan /></section>;
+  const card = cards?.find(c => c.id === open);
+  if (open) {
+    const only = !!cards && cards.length === 1 && user.role !== "teacher";
+    return <section className="panel">
+      {!only && <button className="secondary-action" onClick={() => { setOpen(""); setSub("progress"); void run(load); }}>← کلاس‌ها</button>}
+      {card && <header className="adm-block" style={{ marginTop: 12 }}>
+        <h2>{card.name}{card.term ? " · " + card.term : ""}</h2>
+        <div className="pm-chips">{lsLabel(card.level, card.step) && <span className="adm-badge" style={{ display: "inline-grid" }}>{lsLabel(card.level, card.step)}</span>}</div>
+        <p className="plan-hint">{[card.teacher && isAdmin ? "استاد: " + card.teacher : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
+      </header>}
+      <div className="m-seg" role="tablist" aria-label="بخش‌های کلاس">{TABS.map(([k, t]) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{t}</button>)}</div>
+      {sub === "progress" && <TeacherPlan classes={classes} fixedClassId={open} />}
+      {sub === "people" && <ClassSheet id={open} user={user} onLoaded={() => void refresh()} />}
+      {sub === "exams" && <Exams user={user} classes={classes} classId={open} embedded />}
+      {sub === "report" && <ClassReports classId={open} embedded />}
+      <Notice msg={msg} />
+    </section>;
+  }
+  const shown = (cards || []).filter(c => matchesLS({ level: c.level, step: c.step }, lv, st));
   return <section className="panel">
-    <h2>کلاس‌های من</h2>
+    {seg}
+    <h2>کلاس‌ها</h2>
     {user.role === "teacher" && <div className="report-form">
       <h3>کلاس یا ترم جدید</h3>
       <label>نام کلاس<input value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً ورودی ۱۴۰۵ گام اول" /></label>
@@ -33,35 +67,32 @@ export function ClassSheets({ user, onChanged }: { user: User; onChanged?: () =>
       <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, term, positionNote: pos }); setName(""); setTerm(""); setPos(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
     </div>}
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
-    {cards?.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => setOpen(c.id)}>
+    {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
+    {shown.map(c => <button type="button" className="sheet-card" key={c.id} onClick={() => { setSub("progress"); setOpen(c.id); }}>
       <b>{c.name}{c.term ? " · " + c.term : ""}</b>
       {lsLabel(c.level, c.step) && <span className="adm-badge" style={{ justifySelf: "start" }}>{lsLabel(c.level, c.step)}</span>}
-      <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && user.role === "admin" ? " · استاد: " + c.teacher : ""}</span>
-      {c.hasProgram
-        ? <span>برنامه: {c.program}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده"}</span>
-        : <span>جایگاه: {c.positionNote || "ثبت نشده"} · برنامه‌ای به این کلاس وصل نیست</span>}
+      <span>{fa(c.activeCount)} قرآن‌آموز فعال{c.teacher && isAdmin ? " · استاد: " + c.teacher : ""}</span>
+      <span>{weekLine(c)}</span>
       {c.hasProgram && c.positionNote && <span>یادداشت جایگاه: {c.positionNote}</span>}
     </button>)}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
+    {cards && !!cards.length && !shown.length && <p className="empty-state">کلاسی با این سطح و گام نیست.</p>}
     <Notice msg={msg} />
   </section>;
 }
 
-function ClassSheet({ id, user, back }: { id: string; user: User; back: () => void }) {
+function ClassSheet({ id, user, onLoaded }: { id: string; user: User; onLoaded?: () => void }) {
   const [d, setD] = useState<any>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [programs, setPrograms] = useState<{ id: string; name: string; weeks: number }[] | null>(null), [pick, setPick] = useState(""), [pickWeek, setPickWeek] = useState(""), [confirm, setConfirm] = useState<"" | "change" | "remove">("");
   const [term, setTerm] = useState(""), [pos, setPos] = useState(""), [openKey, setOpenKey] = useState(""), [wk, setWk] = useState("");
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
   const [nm, setNm] = useState(""), [yr, setYr] = useState("");
-  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); };
+  const load = async () => { const x = await call("GET", "/api/class-sheet?classId=" + encodeURIComponent(id)); setD(x); const m = /^(.*?)\s*ورودی\s*([0-9۰-۹]{4})\s*$/.exec(x.name); setNm(m ? m[1] : x.name); setYr(m ? fa(m[2]) : ""); setTerm(x.term); setPos(x.positionNote); setWk(x.currentWeek ? String(x.currentWeek.week_number) : ""); onLoaded?.(); };
   useEffect(() => { void run(load); }, [id]);
   useEffect(() => { call("GET", "/api/programs").then(x => setPrograms(x.programs || [])).catch(() => setPrograms([])); }, []);
-  if (!d) return <section className="panel"><button className="secondary-action" onClick={back}>← کلاس‌ها</button>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
-  return <section className="panel">
-    <button className="secondary-action" onClick={back}>← کلاس‌ها</button>
-    <h2 style={{ marginTop: 12 }}>{d.name}</h2>
-    <p className="plan-hint">{fa(d.active.length)} قرآن‌آموز فعال{d.hasProgram ? " · برنامه: " + d.program + (d.currentWeek ? " · الان در هفتهٔ " + fa(d.currentWeek.week_number) + " · " + d.currentWeek.title : d.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : " · برنامه‌ای به این کلاس وصل نیست"}</p>
-    {lsLabel(d.level, d.step) && <p><span className="adm-badge" style={{ display: "inline-grid" }}>{lsLabel(d.level, d.step)}</span></p>}
+  if (!d) return <div>{msg ? <p className="error-msg">{msg}</p> : <p className="empty-state">در حال بارگذاری…</p>}</div>;
+  return <div>
+    <details className="adm-block"><summary><b>تنظیمات کلاس</b> (سطح و گام، برنامه، جایگاه، نام)</summary>
     <LevelStepEditor level={d.level} step={d.step} busy={busy} onSave={(level, step) => void run(async () => { await call("POST", "/api/class-sheet", { action: "set-level-step", classId: id, level, step }); await load(); setMsg("سطح و گام ذخیره شد ✅"); })} />
     <div className="report-form">
       <h3>برنامه‌ی کلاس</h3>
@@ -104,6 +135,7 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
       <label>جایگاه فعلی کلاس<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
       <button className="secondary-action" disabled={busy || (term === d.term && pos === d.positionNote)} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, term, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی ترم و جایگاه</button>
     </div>
+    </details>
     <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
     {d.active.map((l: any) => <Learner say={setMsg} key={l.key} l={l} className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
@@ -113,7 +145,7 @@ function ClassSheet({ id, user, back }: { id: string; user: User; back: () => vo
       {d.left.map((l: any) => <Learner say={setMsg} key={l.key} l={l} left className={d.name} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     </>}
     <Notice msg={msg} />
-  </section>;
+  </div>;
 }
 
 function Learner({ say, l, left, className, classTerm, classPos, classId, open, toggle, run, busy, reload }: { say: (m: string) => void; l: any; left?: boolean; className: string; classTerm: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
