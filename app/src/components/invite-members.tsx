@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Notice } from "./notice";
+import { displayClassNames } from "../lib/teacher-name";
 
 /** Admin: create a one-week invitation link for a new learner or teacher (optionally into a class). */
 export function InviteMembers({ classes }: { classes: { id: string; name: string }[] }) {
@@ -22,7 +23,7 @@ export function InviteMembers({ classes }: { classes: { id: string; name: string
     <label className="field-label">ایمیل عضو<input type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} /></label>
     <div className="inline-form">
       <select value={role} onChange={e => setRole(e.target.value)}><option value="memorizer">قرآن‌آموز</option><option value="teacher">استاد</option></select>
-      <select value={classId} onChange={e => setClassId(e.target.value)}><option value="">بدون کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select>
+      <select value={classId} onChange={e => setClassId(e.target.value)}><option value="">بدون کلاس</option>{displayClassNames(classes.map(c => c.name)).map((l, k) => <option value={classes[k].id} key={classes[k].id}>{l}</option>)}</select>
       <button type="button" className="adm-btn" disabled={busy || !email} onClick={() => void create()}>ساخت دعوت‌نامه</button>
     </div>
     {code && <div className="invite-result"><b>دعوت‌نامه آماده است (۷ روز اعتبار)</b>

@@ -12,9 +12,12 @@ export const isNoTeacher = (raw: unknown) => { const k = teacherKey(raw); return
 export const searchNorm = (raw: unknown) => teacherKey(raw).toLowerCase();
 /** Query tokens for a search box; every token must be found in the same field. */
 export const searchTokens = (q: string) => searchNorm(q).split(" ").filter(Boolean);
-/** Display only: drop a leading word «کلاس » (normal/ZWNJ space, Arabic ك) so lists read «شهید آرمان علی وردی». Stored names, matching and links keep the real name. «گروه …» and inner «کلاس» are untouched. */
-export const displayClassName = (raw: unknown): string => { const s = String(raw ?? ""); const r = s.replace(/^\s*[کك]لاس[\s‌]+(?=\S)/, ""); return r || s; };
+/** Display only: drop leading «کلاس » / «گروه » words (normal/ZWNJ space, Arabic ك) so lists read «شهید آرمان علی وردی». Stored names, matching, search, links and the edit field keep the real name. Inner words are untouched. */
+export const displayClassName = (raw: unknown): string => { const s = String(raw ?? ""); const r = s.replace(/^\s*(?:(?:[کك]لاس|گروه)[\s\u200c]+(?=\S))+/, ""); return r || s; };
+/** Display labels for a list of class names, same order. When stripping makes two different classes look the same, the later one keeps its raw name (or gets « (۲)» if the raw names are identical too) so the admin can tell them apart. */
+export const displayClassNames = (raws: unknown[]): string[] => { const seen = new Set<string>(), out: string[] = []; for (const r of raws) { const raw = String(r ?? ""); let d = displayClassName(raw); if (seen.has(d)) { d = raw; let n = 2; while (seen.has(d)) d = raw + " (" + String(n++).replace(/\d/g, x => "۰۱۲۳۴۵۶۷۸۹"[+x]) + ")"; } seen.add(d); out.push(d); } return out; };
 const SP = "[\\s‌]+", K = "[کك]", Y = "[یي]";
 const DISPLAY_TITLE = new RegExp(`^\\s*(?:سر${K}ار${SP}خانم|جناب${SP}آقا${Y}|جناب${SP}استاد|سر${K}ار|خانم|استاد|آقا${Y}|جناب)${SP}(?=\\S)`);
 /** Display only: drop leading honorific titles («سرکار خانم»، «سرکار»، «خانم»، «استاد»، «آقای»، «جناب») so teachers read as plain names. Handles ZWNJ and Arabic ی/ك. Keeps the original letters of the name; a bare title with no name, or «خانم» elsewhere in the name, is untouched. Stored data, matching and exports keep the raw value. */
 export const displayTeacherName = (raw: unknown): string => { const s = String(raw ?? ""); let r = s; for (let i = 0; i < 3 && DISPLAY_TITLE.test(r); i++) r = r.replace(DISPLAY_TITLE, ""); r = r.trim(); return !r || /^(?:سر[کك]ار|خانم|استاد|آقا[یي]|جناب)$/.test(r) ? s : r; };
+

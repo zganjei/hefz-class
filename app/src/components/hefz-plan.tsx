@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { displayClassName, displayClassNames } from "../lib/teacher-name";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[]; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
@@ -165,7 +166,7 @@ function ClassRoster({ classId }: { classId: string }) {
   if (!r) return null;
   const line = (k: string, v: string | null | undefined) => v ? <p className="roster-line"><i>{k}:</i> <span dir="auto">{v}</span></p> : null;
   return <article className="plan-week current roster">
-    <div className="plan-week-head static"><div><b>اطلاعات کلاس · {r.className}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
+    <div className="plan-week-head static"><div><b>اطلاعات کلاس · {displayClassName(r.className)}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
     <div className="roster-meta">
       {r.program && <p><i>برنامهٔ کلاس:</i> {r.program.name}</p>}
       <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
@@ -193,9 +194,10 @@ export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id
     if (!classId) return;
     call(`/api/plan?classId=${encodeURIComponent(classId)}${week ? "&week=" + week : ""}`).then(d => { setData(d); setMsg(""); }).catch(e => { setData(null); setMsg(e.message); });
   }, [classId, week]);
+  const clsLabels = displayClassNames(classes.map(c => c.name));
   return <section className="plan-wrap">
     <div className="plan-toolbar">
-      {!fixedClassId && classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+      {!fixedClassId && classes.length > 1 && <label>کلاس<select value={classId} onChange={e => { setClassId(e.target.value); setWeek(null); }}>{classes.map((c, i) => <option key={c.id} value={c.id}>{clsLabels[i]}</option>)}</select></label>}
       {data && <label>مشاهدهٔ هفته{data.program && (week ?? data.week.week_number) === data.currentWeek && <span className="adm-badge" style={{ justifySelf: "start" }}>هفتهٔ جاری کلاس</span>}<select value={week ?? data.week.week_number} onChange={e => setWeek(Number(e.target.value))}>{[...data.weeks].reverse().map(w => <option key={w.week_number} value={w.week_number}>هفتهٔ {fa(w.week_number)} · {w.title}</option>)}</select></label>}
     </div>
     {msg && <p className="error-msg">{msg}</p>}

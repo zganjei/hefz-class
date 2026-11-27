@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { teacherKey, isNoTeacher, displayClassName, displayTeacherName } from "../lib/teacher-name";
+import { teacherKey, isNoTeacher, displayClassName, displayClassNames, displayTeacherName } from "../lib/teacher-name";
+
 import { normClassName } from "../lib/class-name";
 import { navTo } from "../lib/nav";
 import { rankPeople } from "../lib/registry-search";
@@ -156,7 +157,7 @@ export function Registry() {
     {kind && !edit && <>
       <div className="reg-tools">
         <input placeholder="جستجو…" value={q} onChange={e => setQ(e.target.value)} />
-        {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{classes.map(c => <option key={c} value={c}>{displayClassName(c)}</option>)}</select>}
+        {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{displayClassNames(classes).map((l, i) => <option key={classes[i]} value={classes[i]}>{l}</option>)}</select>}
       </div>
       <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!shown.length} onClick={() => download(`${kind}.csv`, toCsv(shown, FORM_FIELDS[kind], kind === "teacher"))}>خروجی اکسل</button></div>
       {!shown.length && !otherRows.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}

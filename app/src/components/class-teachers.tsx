@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Notice } from "./notice";
-import { displayTeacherName } from "../lib/teacher-name";
+import { displayTeacherName, displayClassNames } from "../lib/teacher-name";
+
 
 async function call(method: string, path: string, body?: unknown) {
   const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -22,10 +23,11 @@ export function ClassTeachers({ refreshKey = 0 }: { refreshKey?: number }) {
   const loadCurrent = async (id: string) => { if (!id) { setCurrent([]); return; } const d = await call("GET", "/api/class-teachers?classId=" + encodeURIComponent(id)); setCurrent(d.teachers || []); };
   useEffect(() => { void run(async () => { const [c, t] = await Promise.all([call("GET", "/api/classes"), call("GET", "/api/staff")]); setClasses(c.classes || []); setTeachers(t.teachers || []); if (classId && !(c.classes || []).some((x: Cls) => x.id === classId)) setClassId(""); }); }, [refreshKey]);   // refreshKey: classes created/deleted elsewhere
   useEffect(() => { void run(() => loadCurrent(classId)); }, [classId]);
+  const clsLabels = displayClassNames(classes.map(c => c.name));
   return <div className="adm-stack">
     <div className="adm-block">
       <h3>اساتید کلاس</h3>
-      <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
+      <label>کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map((c, i) => <option value={c.id} key={c.id}>{clsLabels[i]}</option>)}</select></label>
       {classId && <>
         <h4>اساتید فعلی</h4>
         {current.map(t => <div className="adm-row" key={t.id}><b>{displayTeacherName(t.display_name)}</b>{t.is_primary ? <span>استاد اصلی</span> : <button className="adm-btn danger sm" disabled={busy} onClick={() => void run(async () => { await call("DELETE", "/api/class-teachers", { classId, userId: t.id }); await loadCurrent(classId); setMsg("استاد از کلاس حذف شد ✅"); })}>حذف</button>}</div>)}

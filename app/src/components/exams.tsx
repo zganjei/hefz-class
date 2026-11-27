@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { navTo, goBack, useNavSegs } from "../lib/nav";
 import { Notice } from "./notice";
 import { PassMarks } from "./pass-marks";
+import { displayClassName } from "../lib/teacher-name";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[] };
 const KIND: Record<string, string> = { hifz: "حسن حفظ", tadabbur: "تدبر", vocabulary: "لغت", final: "عمومی" };
@@ -83,7 +84,7 @@ function LearnerList({ openExam, run }: { openExam: (id: string) => void; run: R
   useEffect(() => { void run(async () => { setExams((await call("GET", "/api/exams?mine=1")).exams || []); }); }, []);
   if (!exams) return <p className="empty-state">در حال بارگذاری…</p>;
   return <>
-    {exams.map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{e.class_name}{e.done ? " · نمره: " + fa(e.score) + " از " + fa(e.max_score) : e.questions ? "" : " · هنوز سؤالی ندارد"}</span>{!e.done && e.questions > 0 && <button className="secondary-action" onClick={() => openExam(e.id)}>شروع آزمون</button>}</div>)}
+    {exams.map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{displayClassName(e.class_name)}{e.done ? " · نمره: " + fa(e.score) + " از " + fa(e.max_score) : e.questions ? "" : " · هنوز سؤالی ندارد"}</span>{!e.done && e.questions > 0 && <button className="secondary-action" onClick={() => openExam(e.id)}>شروع آزمون</button>}</div>)}
     {!exams.length && <p className="empty-state">هنوز آزمونی برای کلاس شما نیست.</p>}
   </>;
 }
