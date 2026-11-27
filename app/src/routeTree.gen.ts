@@ -32,6 +32,7 @@ import { Route as ApiRegistryMembersRouteImport } from './routes/api/registry-me
 import { Route as ApiReportsRouteImport } from './routes/api/reports'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiStaffRouteImport } from './routes/api/staff'
+import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiAuthCredentialsRouteImport } from './routes/api/auth.credentials'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth.login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth.logout'
@@ -155,6 +156,11 @@ const ApiStaffRoute = ApiStaffRouteImport.update({
   path: '/api/staff',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVideosRoute = ApiVideosRouteImport.update({
+  id: '/api/videos',
+  path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthCredentialsRoute = ApiAuthCredentialsRouteImport.update({
   id: '/api/auth/credentials',
   path: '/api/auth/credentials',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
+  '/api/videos': typeof ApiVideosRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
+  '/api/videos': typeof ApiVideosRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/api/reports': typeof ApiReportsRouteWithChildren
   '/api/search': typeof ApiSearchRoute
   '/api/staff': typeof ApiStaffRoute
+  '/api/videos': typeof ApiVideosRoute
   '/api/auth/credentials': typeof ApiAuthCredentialsRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
@@ -314,6 +323,7 @@ export interface FileRouteTypes {
     | '/api/reports'
     | '/api/search'
     | '/api/staff'
+    | '/api/videos'
     | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -346,6 +356,7 @@ export interface FileRouteTypes {
     | '/api/reports'
     | '/api/search'
     | '/api/staff'
+    | '/api/videos'
     | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -378,6 +389,7 @@ export interface FileRouteTypes {
     | '/api/reports'
     | '/api/search'
     | '/api/staff'
+    | '/api/videos'
     | '/api/auth/credentials'
     | '/api/auth/login'
     | '/api/auth/logout'
@@ -411,6 +423,7 @@ export interface RootRouteChildren {
   ApiReportsRoute: typeof ApiReportsRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   ApiStaffRoute: typeof ApiStaffRoute
+  ApiVideosRoute: typeof ApiVideosRoute
   ApiAuthCredentialsRoute: typeof ApiAuthCredentialsRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
@@ -582,6 +595,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStaffRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/videos': {
+      id: '/api/videos'
+      path: '/api/videos'
+      fullPath: '/api/videos'
+      preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/credentials': {
       id: '/api/auth/credentials'
       path: '/api/auth/credentials'
@@ -670,6 +690,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReportsRoute: ApiReportsRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   ApiStaffRoute: ApiStaffRoute,
+  ApiVideosRoute: ApiVideosRoute,
   ApiAuthCredentialsRoute: ApiAuthCredentialsRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,

@@ -3,6 +3,7 @@ import { Acc, useOne } from "./admin-ui";
 import { RegistryClasses } from "./registry-classes";
 import { ClassTeachers } from "./class-teachers";
 import { Programs } from "./programs";
+import { VideoLibrary } from "./video-admin";
 import { InviteMembers } from "./invite-members";
 import { StaffAccounts } from "./staff-accounts";
 
@@ -20,7 +21,7 @@ function AppCard({ a, busy, note, decide }: { a: any; busy: boolean; note?: Note
 
 /** Admin «مدیریت» tab: pending applications on top, everything else in one-at-a-time sections. */
 export function AdminRequests({ applications, busy, decide, decisionNote, classRev, classes, onCreated }: { applications: any[]; busy: boolean; decide: (id: string, d: "approve" | "reject") => void; decisionNote: Record<string, Note>; classRev: number; classes: { id: string; name: string }[]; onCreated: () => void }) {
-  const { open, toggle } = useOne<"programs" | "classes" | "invite" | "accounts">();
+  const { open, toggle } = useOne<"programs" | "videos" | "classes" | "invite" | "accounts">();
   const [showDone, setShowDone] = useState(false);
   // a just-decided card stays on top while it carries a message the admin still has to send
   const todo = applications.filter(a => a.status === "pending" || decisionNote[a.id]);
@@ -39,6 +40,7 @@ export function AdminRequests({ applications, busy, decide, decisionNote, classR
       </div>
     </section>
     <Acc title="برنامه‌های حفظ"open={open === "programs"} onToggle={() => toggle("programs")}><Programs refreshKey={classRev} /></Acc>
+    <Acc title="ویدئوها" open={open === "videos"} onToggle={() => toggle("videos")}><VideoLibrary /></Acc>
     <Acc title="کلاس‌ها و اساتید" open={open === "classes"} onToggle={() => toggle("classes")}><ClassTeachers refreshKey={classRev} /><RegistryClasses onCreated={onCreated} /></Acc>
     <Acc title="دعوت اعضا" open={open === "invite"} onToggle={() => toggle("invite")}><InviteMembers classes={classes} /></Acc>
     <Acc title="حساب‌ها" open={open === "accounts"} onToggle={() => toggle("accounts")}><StaffAccounts /></Acc>
