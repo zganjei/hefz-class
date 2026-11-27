@@ -23,6 +23,7 @@ import { Route as ApiExamsRouteImport } from './routes/api/exams'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiInvitationsRouteImport } from './routes/api/invitations'
 import { Route as ApiLearningRouteImport } from './routes/api/learning'
+import { Route as ApiPassMarksRouteImport } from './routes/api/pass-marks'
 import { Route as ApiPlanRouteImport } from './routes/api/plan'
 import { Route as ApiProgramsRouteImport } from './routes/api/programs'
 import { Route as ApiRegistryRouteImport } from './routes/api/registry'
@@ -106,6 +107,11 @@ const ApiInvitationsRoute = ApiInvitationsRouteImport.update({
 const ApiLearningRoute = ApiLearningRouteImport.update({
   id: '/api/learning',
   path: '/api/learning',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPassMarksRoute = ApiPassMarksRouteImport.update({
+  id: '/api/pass-marks',
+  path: '/api/pass-marks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPlanRoute = ApiPlanRouteImport.update({
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/pass-marks': typeof ApiPassMarksRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/pass-marks': typeof ApiPassMarksRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
@@ -255,6 +263,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/api/invitations': typeof ApiInvitationsRoute
   '/api/learning': typeof ApiLearningRoute
+  '/api/pass-marks': typeof ApiPassMarksRoute
   '/api/plan': typeof ApiPlanRoute
   '/api/programs': typeof ApiProgramsRoute
   '/api/registry': typeof ApiRegistryRoute
@@ -287,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/pass-marks'
     | '/api/plan'
     | '/api/programs'
     | '/api/registry'
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/pass-marks'
     | '/api/plan'
     | '/api/programs'
     | '/api/registry'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/invitations'
     | '/api/learning'
+    | '/api/pass-marks'
     | '/api/plan'
     | '/api/programs'
     | '/api/registry'
@@ -378,6 +390,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiInvitationsRoute: typeof ApiInvitationsRoute
   ApiLearningRoute: typeof ApiLearningRoute
+  ApiPassMarksRoute: typeof ApiPassMarksRoute
   ApiPlanRoute: typeof ApiPlanRoute
   ApiProgramsRoute: typeof ApiProgramsRoute
   ApiRegistryRoute: typeof ApiRegistryRoute
@@ -491,6 +504,13 @@ declare module '@tanstack/react-router' {
       path: '/api/learning'
       fullPath: '/api/learning'
       preLoaderRoute: typeof ApiLearningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pass-marks': {
+      id: '/api/pass-marks'
+      path: '/api/pass-marks'
+      fullPath: '/api/pass-marks'
+      preLoaderRoute: typeof ApiPassMarksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/plan': {
@@ -621,6 +641,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiInvitationsRoute: ApiInvitationsRoute,
   ApiLearningRoute: ApiLearningRoute,
+  ApiPassMarksRoute: ApiPassMarksRoute,
   ApiPlanRoute: ApiPlanRoute,
   ApiProgramsRoute: ApiProgramsRoute,
   ApiRegistryRoute: ApiRegistryRoute,
