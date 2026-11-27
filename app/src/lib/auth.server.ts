@@ -19,13 +19,14 @@ function fromB64(value: string) {
   const raw = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(raw, c => c.charCodeAt(0));
 }
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 210000 }, key, 256);
   return `pbkdf2:${b64(salt)}:${b64(new Uint8Array(bits))}`;
 }
-async function verifyPassword(password: string, stored: string) {
+export async function verifyPassword(password: string, stored: string) {
+  if (stored.startsWith("google:")) return false; // legacy Google marker is never a password
   const [scheme, saltText, hashText] = stored.split(":");
   if (scheme !== "pbkdf2" || !saltText || !hashText) return false;
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -192,10 +193,17 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
   } catch { return jsonError("ارتباط با سرویس گوگل برقرار نشد.", 502); }
   if (google.aud !== GOOGLE_CLIENT_ID || !google.sub || !google.email || google.email_verified !== "true") return jsonError("حساب گوگل معتبر یا تأییدشده نیست.", 401);
   const email = google.email.trim().toLowerCase();
-  const existing = await DB.prepare("SELECT id,email,display_name,role,password_hash FROM users WHERE email=? AND active=1").bind(email).first<Omit<SessionUser, "roles"> & {password_hash:string}>();
+  const existing = await DB.prepare("SELECT id,email,display_name,role,password_hash,google_sub FROM users WHERE email=? AND active=1").bind(email).first<Omit<SessionUser, "roles"> & {password_hash:string;google_sub:string|null}>();
   let user: Omit<SessionUser, "roles">;
   if (existing) {
-    if (existing.password_hash !== `google:${google.sub}`) return jsonError("این ایمیل قبلاً با گذرواژه ثبت شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
+    // The Google link lives in google_sub, separate from password_hash, so a password/phone never breaks it.
+    const linked = existing.google_sub ?? (existing.password_hash.startsWith("google:") ? existing.password_hash.slice(7) : null);
+    const conflict = () => jsonError("این ایمیل قبلاً با حساب گوگل دیگری متصل شده است. برای اتصال گوگل با مدیر تماس بگیرید.", 409);
+    if (linked && linked !== google.sub) return conflict();
+    if (existing.google_sub !== google.sub) {
+      try { await DB.prepare("UPDATE users SET google_sub=? WHERE id=? AND (google_sub IS NULL OR google_sub=?)").bind(google.sub, existing.id, google.sub).run(); }
+      catch { return conflict(); }
+    }
     user = { id: existing.id, email: existing.email, display_name: existing.display_name, role: existing.role };
   } else {
     // The first verified Google account becomes the app administrator.
@@ -206,8 +214,8 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
       const id = crypto.randomUUID();
       const name = (google.name || email.split("@")[0]).trim().slice(0,80);
       try {
-        await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) SELECT ?,?,?,?,'admin' WHERE NOT EXISTS (SELECT 1 FROM users)")
-          .bind(id,email,name,`google:${google.sub}`).run();
+        await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role,google_sub) SELECT ?,?,?,?,'admin',? WHERE NOT EXISTS (SELECT 1 FROM users)")
+          .bind(id,email,name,`google:${google.sub}`,google.sub).run();
       } catch { return jsonError("ساخت حساب مدیر انجام نشد؛ دوباره وارد شوید.",409); }
       const created = await DB.prepare("SELECT id,email,display_name,role FROM users WHERE email=? AND active=1").bind(email).first<Omit<SessionUser, "roles">>();
       if (!created || created.role !== "admin") return jsonError("راه‌اندازی مدیر انجام نشد؛ ممکن است حساب دیگری زودتر ساخته شده باشد.",409);
@@ -223,7 +231,7 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
         const id = crypto.randomUUID();
         const name = `${app.first_name} ${app.last_name}`.trim().slice(0, 80);
         try {
-          await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,'memorizer')").bind(id, email, name, `google:${google.sub}`).run();
+          await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role,google_sub) VALUES (?,?,?,?,'memorizer',?)").bind(id, email, name, `google:${google.sub}`, google.sub).run();
           await DB.prepare("UPDATE applications SET used_at=? WHERE id=?").bind(new Date().toISOString(), app.id).run();
         } catch { return jsonError("ساخت حساب انجام نشد؛ دوباره امتحان کنید.", 409); }
         user = { id, email, display_name: name, role: "memorizer" };
@@ -238,7 +246,7 @@ export async function registerOrLoginWithGoogle(request: Request, body: Record<s
     const id = crypto.randomUUID();
     const name = (google.name || email.split("@")[0]).trim().slice(0,80);
     try {
-      await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role) VALUES (?,?,?,?,?)").bind(id,email,name,`google:${google.sub}`,invite.role).run();
+      await DB.prepare("INSERT INTO users (id,email,display_name,password_hash,role,google_sub) VALUES (?,?,?,?,?,?)").bind(id,email,name,`google:${google.sub}`,invite.role,google.sub).run();
       await attachInviteToClass(DB, invite, id);
       await DB.prepare("UPDATE invitations SET used_at=? WHERE id=?").bind(new Date().toISOString(),invite.id).run();
     } catch { return jsonError("ساخت حساب انجام نشد؛ ممکن است دعوت‌نامه قبلاً استفاده شده باشد.",409); }
