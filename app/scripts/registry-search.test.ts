@@ -10,3 +10,25 @@ test("teacher title prefixes", () => { expect(personMatches(zahra, "استاد �
 test("class, code, phone digits (Persian/Arabic/latin)", () => { expect(personMatches(zahra, "آرمان")).toBe(true); expect(personMatches(zahra, "a12")).toBe(true); expect(personMatches(zahra, "۰۹۱۲۳")).toBe(true); expect(personMatches(zahra, "٠٩١٢٣")).toBe(true); expect(personMatches(zahra, "09123")).toBe(true); expect(personMatches(other, "09123")).toBe(false); });
 test("hidden fields are not searched", () => { expect(personMatches({ full_name: "الناز", ...({ notes: "زهرا", extra: "زهرا" } as object) }, "زهرا")).toBe(false); });
 test("empty query matches all", () => { expect(personMatches(other, "  ")).toBe(true); });
+
+import { personMatch, rankPeople } from "../src/lib/registry-search";
+import { displayClassName } from "../src/lib/teacher-name";
+const byTeacher = { full_name: "الناز تشکری", class_name: "کلاس شهید آرمان علی وردی", teacher_name: "زهراسادات رضایی" };
+test("name match ranks as name group; teacher-only match is the 'other' group with a reason", () => {
+  expect(personMatch(zahra, "زهرا")?.group).toBe("name");
+  const m = personMatch(byTeacher, "زهرا"); expect(m?.group).toBe("other"); expect(m?.reasons).toEqual(["استاد: زهراسادات رضایی"]);
+  const r = rankPeople([byTeacher, other, zahra], "زهرا"); expect(r.main).toEqual([zahra]); expect(r.other.map(o => o.p)).toEqual([byTeacher]);
+});
+test("multi-word: all tokens must match, more name tokens rank higher", () => {
+  const a = { full_name: "زهرا رضایی", teacher_name: "x" }, b = { full_name: "زهرا کریمی", teacher_name: "رضایی" };
+  expect(rankPeople([b, a], "زهرا رضایی").main).toEqual([a, b]);
+  expect(personMatch(a, "زهرا نامربوط")).toBeNull();
+});
+test("class-only match shows class reason without leading «کلاس»", () => { expect(personMatch(byTeacher, "آرمان")?.reasons).toEqual(["کلاس: شهید آرمان علی وردی"]); expect(personMatches(byTeacher, "کلاس شهید")).toBe(true); });
+test("displayClassName strips only a leading «کلاس »", () => {
+  expect(displayClassName("کلاس شهید آرمان علی وردی")).toBe("شهید آرمان علی وردی");
+  expect(displayClassName("كلاس‌ شهید")).toBe("شهید");
+  expect(displayClassName("گروه شهید موسوی")).toBe("گروه شهید موسوی");
+  expect(displayClassName("شهید کلاس دوم")).toBe("شهید کلاس دوم");
+  expect(displayClassName("کلاس")).toBe("کلاس");
+});
