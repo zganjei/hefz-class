@@ -27,19 +27,19 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   const registry = await registryStudents(DB);
 
   if (!classId) {
-   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND ut.role='teacher' AND ut.active=1),'') AS teacher_name FROM classes c";
+   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,c.class_day,c.class_time,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND ut.role='teacher' AND ut.active=1),'') AS teacher_name FROM classes c";
    const rows = (user.role === "admin" ? await DB.prepare(`${sel} ORDER BY c.created_at DESC`).all<any>() : await DB.prepare(`${sel} WHERE ${TEACHES_CLASS_SQL} ORDER BY c.created_at DESC`).bind(user.id, user.id).all<any>()).results || [];
    const cards = [];
    for (const c of rows) {
     const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, today);
-    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", level: c.level_name || "", step: c.step_name || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
+    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", level: c.level_name || "", step: c.step_name || "", classDay: c.class_day || "", classTime: c.class_time || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
    }
    return Response.json({ classes: cards });
   }
 
   if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
   const cp = await classPeople(DB, classId, registry); if (!cp) return jsonError("کلاس پیدا نشد.", 404);
-  const meta = await DB.prepare("SELECT term,position_note,level_name,step_name FROM classes WHERE id=?").bind(classId).first<any>();
+  const meta = await DB.prepare("SELECT term,position_note,level_name,step_name,class_day,class_time FROM classes WHERE id=?").bind(classId).first<any>();
   const st = await programState(DB, classId, today), prog = await programForClass(DB, classId);
   const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(classId).all<any>()).results || [];
   const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(classId).all<any>()).results || [];
@@ -47,13 +47,15 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   const mine = user.role === "admin" ? null : new Set(((await DB.prepare(`SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}`).bind(user.id, user.id).all<any>()).results || []).map(r => r.id as string));
   const histories = new Map<string, Awaited<ReturnType<typeof personHistory>>>();
   for (const p of cp.people) histories.set(p.key, await personHistory(DB, p, mine));
+  const cn = normClassName(cp.cls.name), hintRow = registry.find((r: any) => { const rn = normClassName(r.class_name); return rn.length >= 3 && cn.length >= 3 && (rn === cn || rn.includes(cn) || cn.includes(rn)) && (r.class_day || r.class_time); });
+  const dayTimeHint = hintRow ? { day: String(hintRow.class_day || "").slice(0, 40), time: String(hintRow.class_time || "").slice(0, 40) } : null;
   const learner = (p: Person) => ({
    history: histories.get(p.key) || [],
    key: p.key, name: p.name, registered: p.registered, phone: p.phone, email: p.email, code: p.code, level: p.level, education: p.education, hifzAmount: p.hifzAmount, tadabburAmount: p.tadabburAmount, notes: p.notes,
    digital: exams.filter(e => att.some(a => a.exam_id === e.id && a.user_id === p.userId)).map(e => { const a = att.find(x => x.exam_id === e.id && x.user_id === p.userId)!; return { title: e.title, date: e.exam_date, score: Number(a.score), max: Number(a.max_score) }; }),
    manual: manual.filter(m => (p.registryId && m.registry_id === p.registryId) || (p.userId && m.user_id === p.userId)).map(m => ({ id: m.id, title: m.title, score: Number(m.score), max: m.max_score == null ? null : Number(m.max_score), date: m.score_date, note: m.note || "" })),
   });
-  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", level: meta?.level_name || "", step: meta?.step_name || "", ...st, programId: prog?.programId || "", programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
+  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", level: meta?.level_name || "", step: meta?.step_name || "", classDay: meta?.class_day || "", classTime: meta?.class_time || "", dayTimeHint, ...st, programId: prog?.programId || "", programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
@@ -87,6 +89,14 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    // «ترم» is no longer in the UI; old clients may still send it. Fields that are not sent stay untouched.
    if (body.term !== undefined) await DB.prepare("UPDATE classes SET term=? WHERE id=?").bind(clip(body.term, 80) || null, classId).run();
    if (body.positionNote !== undefined) await DB.prepare("UPDATE classes SET position_note=? WHERE id=?").bind(clip(body.positionNote, 300) || null, classId).run();
+   // «روز و ساعت کلاس»: only when sent; plain text, at most 40 characters, no HTML
+   for (const [f, col] of [["classDay", "class_day"], ["classTime", "class_time"]] as const) {
+    if (body[f] === undefined) continue;
+    const v = clip(body[f], 41).replace(/\s+/g, " ");
+    if (v.length > 40) return jsonError("حداکثر ۴۰ نویسه.");
+    if (/[<>]/.test(v)) return jsonError("نویسه‌های < و > مجاز نیستند.");
+    await DB.prepare(`UPDATE classes SET ${col}=? WHERE id=?`).bind(v || null, classId).run();
+   }
    return Response.json({ ok: true });
   }
 

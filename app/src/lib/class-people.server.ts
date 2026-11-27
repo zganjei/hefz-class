@@ -17,7 +17,7 @@ export type HistoryEvent = { id: string; classId: string | null; className: stri
 const tail = (s: unknown) => String(s ?? "").replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[^0-9]/g, "").slice(-10);
 
 export async function registryStudents(DB: DB) {
-  return ((await DB.prepare("SELECT id,full_name,code,class_name,level,education,hifz_amount,tadabbur_amount,phone,notes FROM registry_people WHERE kind='student' AND status='active' ORDER BY full_name").all<any>()).results || []);
+  return ((await DB.prepare("SELECT id,full_name,code,class_name,class_day,class_time,level,education,hifz_amount,tadabbur_amount,phone,notes FROM registry_people WHERE kind='student' AND status='active' ORDER BY full_name").all<any>()).results || []);
 }
 
 /** The people of a class: signed-in members (learner accounts) matched to the registry by phone or name, plus registry students of this class who have not signed in yet.
