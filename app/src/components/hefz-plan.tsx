@@ -148,6 +148,35 @@ function LearnerPlan() {
 }
 
 type Report = { currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
+type RosterRow = { name: string; registered: boolean; phone: string | null; email: string | null; nationalId: string | null; code: string | null; level: string | null; education: string | null; hifzAmount: string | null; tadabburAmount: string | null; notes: string | null; hefz: { daysDone: number }; scores: { week: number; weekTitle: string; lesson: string; score: number; max: number; passed: boolean }[] };
+type Roster = { className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; sessionsHeld: number | null; rows: RosterRow[] };
+function ClassRoster({ classId }: { classId: string }) {
+  const [r, setR] = useState<Roster | null>(null), [msg, setMsg] = useState("");
+  useEffect(() => { if (!classId) return; setR(null); call(`/api/plan?classId=${encodeURIComponent(classId)}&roster=1`).then(d => { setR(d); setMsg(""); }).catch(e => setMsg(e.message)); }, [classId]);
+  if (msg) return <p className="error-msg">{msg}</p>;
+  if (!r) return null;
+  const line = (k: string, v: string | null | undefined) => v ? <p className="roster-line"><i>{k}:</i> <span dir="auto">{v}</span></p> : null;
+  return <article className="plan-week current roster">
+    <div className="plan-week-head static"><div><b>اطلاعات کلاس · {r.className}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
+    <div className="roster-meta">
+      <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : "هنوز هفته‌ای باز نشده است"}</p>
+      <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
+      <p><i>تعداد قرآن‌آموزان:</i> {fa(r.rows.length)}</p>
+    </div>
+    <div className="m-members">
+      {r.rows.map((m, i) => <details key={i} className="m-member roster-row">
+        <summary><b>{m.name}</b><span>{m.registered ? `${fa(m.hefz.daysDone)} روز حفظ ثبت‌شده` : "هنوز وارد سامانه نشده"}</span></summary>
+        {line("شماره‌ی تماس", m.phone)}{line("ایمیل", m.email)}{line("کد ملی", m.nationalId)}{line("کد قرآن‌آموز", m.code)}{line("سطح", m.level)}{line("تحصیلات", m.education)}{line("میزان حفظ", m.hifzAmount)}{line("میزان تدبر", m.tadabburAmount)}{line("یادداشت", m.notes)}
+        <div className="roster-scores"><i>نمره‌ی آزمون پایان درس:</i>
+          {m.scores.length ? m.scores.map((s, j) => <p key={j} className="roster-line">هفتهٔ {fa(s.week)} · {s.lesson}: <b className={s.passed ? "m-full" : ""}>{fa(s.score)} از {fa(s.max)}</b></p>) : <p className="roster-line">هنوز نمره‌ای ثبت نشده است.</p>}
+        </div>
+      </details>)}
+      {!r.rows.length && <p className="empty-state">برای این کلاس هنوز قرآن‌آموزی ثبت نشده است.</p>}
+      <p className="plan-hint">این اطلاعات فقط برای استاد همین کلاس و مدیر نمایش داده می‌شود.</p>
+    </div>
+  </article>;
+}
+
 function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
   const [classId, setClassId] = useState(classes[0]?.id || ""), [week, setWeek] = useState<number | null>(null), [data, setData] = useState<Report | null>(null), [msg, setMsg] = useState("");
   useEffect(() => { if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId]);
@@ -169,6 +198,7 @@ function TeacherPlan({ classes }: { classes: { id: string; name: string }[] }) {
         </div>; })}
         {!data.members.length && <p className="empty-state">هنوز حافظی در این کلاس نیست.</p>}
         <p className="plan-hint">✓ انجام شد · نقطه: هنوز نه · ک: کلاس · خط: استراحت</p></div></article>}
+    {classId && <ClassRoster classId={classId} />}
   </section>;
 }
 
