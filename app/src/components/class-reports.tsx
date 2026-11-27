@@ -13,7 +13,7 @@ export function ClassReports() {
     <p className="plan-hint">{fa(d.totalLearners)} قرآن‌آموز در {fa(d.classes.length)} کلاس</p>
     {d.classes.map((c: any) => <article className="report-entry" key={c.id}>
       <div className="report-entry-head"><b>{c.name}</b><i className="status">{fa(c.learners.length)} قرآن‌آموز</i></div>
-      <small>{c.program ? "برنامه: " + c.program : "برنامه‌ی عمومی"}{c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : " · هفتهٔ جاری مشخص نیست"}</small>
+      <small>{c.program ? "برنامه: " + c.program + (c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : "جایگاه: " + (c.positionNote || "ثبت نشده") + " · برنامه‌ای به این کلاس وصل نیست"}</small>
       {c.learners.map((l: any) => <div className="simple-row" key={l.id}><b>{l.name}</b>
         <span>{[...c.exams.map((e: any) => e.title + ": " + (l.scores[e.id] ? fa(l.scores[e.id].score) + "/" + fa(l.scores[e.id].max) : "—")), ...l.manual.map((m: any) => m.title + ": " + fa(m.score) + (m.max ? "/" + fa(m.max) : ""))].join(" · ") || "نمره‌ای ثبت نشده"}{l.registered ? "" : " · هنوز وارد نشده"}</span></div>)}
       {!c.learners.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}

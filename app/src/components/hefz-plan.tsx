@@ -151,7 +151,7 @@ function LearnerPlan() {
 
 type Report = { program?: { id: string; name: string } | null; currentWeekTitle?: string | null; currentWeek: number | null; week: { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; newDays: number[]; days: { index: number; name: string; jdate: string; kind: string; new: string | null; future: boolean }[] }; weeks: { week_number: number; title: string }[]; members: { id: string; name: string; done: number[]; lastTick: string | null; totalDone: number }[] };
 type RosterRow = { name: string; registered: boolean; phone: string | null; email: string | null; nationalId: string | null; code: string | null; level: string | null; education: string | null; hifzAmount: string | null; tadabburAmount: string | null; notes: string | null; hefz: { daysDone: number }; scores: { week: number; weekTitle: string; lesson: string; score: number; max: number; passed: boolean }[] };
-type Roster = { program?: { id: string; name: string } | null; className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; sessionsHeld: number | null; rows: RosterRow[] };
+type Roster = { program?: { id: string; name: string } | null; className: string; schedule: string; currentWeek: { week_number: number; title: string } | null; programEnded?: boolean; positionNote?: string; sessionsHeld: number | null; rows: RosterRow[] };
 function ClassRoster({ classId }: { classId: string }) {
   const [r, setR] = useState<Roster | null>(null), [msg, setMsg] = useState("");
   useEffect(() => { if (!classId) return; setR(null); call(`/api/plan?classId=${encodeURIComponent(classId)}&roster=1`).then(d => { setR(d); setMsg(""); }).catch(e => setMsg(e.message)); }, [classId]);
@@ -162,7 +162,10 @@ function ClassRoster({ classId }: { classId: string }) {
     <div className="plan-week-head static"><div><b>اطلاعات کلاس · {r.className}</b><small>{r.schedule || "روز و ساعت کلاس ثبت نشده است"}</small></div></div>
     <div className="roster-meta">
       {r.program && <p><i>برنامهٔ کلاس:</i> {r.program.name}</p>}
-      <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : "هنوز هفته‌ای باز نشده است"}</p>
+      {r.program
+        ? <p><i>جایگاه فعلی برنامه:</i> {r.currentWeek ? `هفتهٔ ${fa(r.currentWeek.week_number)} · ${r.currentWeek.title}` : r.programEnded ? "برنامه به پایان رسیده است" : "هنوز شروع نشده است"}</p>
+        : <p><i>جایگاه فعلی کلاس:</i> {r.positionNote || "ثبت نشده"} <small>(برنامه‌ای به این کلاس وصل نیست)</small></p>}
+      <p className="plan-hint">جایگاه واقعی کلاس را از «کلاس‌ها» ← کارت کلاس تنظیم کنید.</p>
       <p><i>تعداد جلسات برگزارشده:</i> {r.sessionsHeld === null ? "هنوز در سامانه ثبت نمی‌شود" : fa(r.sessionsHeld)}</p>
       <p><i>تعداد قرآن‌آموزان:</i> {fa(r.rows.length)}</p>
     </div>

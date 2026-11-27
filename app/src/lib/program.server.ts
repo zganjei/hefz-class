@@ -28,3 +28,22 @@ export async function programForUser(DB: DB, userId: string): Promise<ClassProgr
   const c = await DB.prepare("SELECT c.id AS class_id,c.program_id,c.program_start::text AS program_start,p.name FROM class_members m JOIN classes c ON c.id=m.class_id JOIN hefz_programs p ON p.id=c.program_id WHERE m.user_id=? AND c.program_start IS NOT NULL ORDER BY m.joined_at,c.id LIMIT 1").bind(userId).first<any>();
   return c ? load(DB, c) : null;
 }
+
+const dayDiff = (from: string, to: string) => Math.round((Date.parse(to + "T12:00:00Z") - Date.parse(from + "T12:00:00Z")) / 86400000);
+export type ClassPosition = { hasProgram: boolean; program: string | null; status: "none" | "before" | "running" | "ended"; weekCount: number; weekIndex: number; currentWeek: { week_number: number; title: string } | null };
+
+/** Where a class really is in ITS program today. A class without a program has no position here (the global date-based plan is not a class position). */
+export function positionOf(prog: ClassProgram | null, today: string): ClassPosition {
+  if (!prog) return { hasProgram: false, program: null, status: "none", weekCount: 0, weekIndex: -1, currentWeek: null };
+  const n = prog.weeks.length, raw = Math.floor(dayDiff(prog.startDate, today) / 7);
+  const weekIndex = Math.max(-1, Math.min(n, raw));   // -1: not started, n: finished
+  const w = weekIndex >= 0 && weekIndex < n ? prog.weeks[weekIndex] : null;
+  return { hasProgram: true, program: prog.name, status: weekIndex < 0 ? "before" : weekIndex >= n ? "ended" : "running", weekCount: n, weekIndex, currentWeek: w ? { week_number: w.week_number, title: w.title } : null };
+}
+
+/** Moves the class so that today falls in week `index` (0-based) of its program: shifts program_start, the existing mechanism, so learners follow. */
+export async function setClassWeek(DB: DB, classId: string, index: number, today: string): Promise<string> {
+  const start = addDays(saturdayOnOrBefore(today), -7 * index);
+  await DB.prepare("UPDATE classes SET program_start=? WHERE id=? AND program_id IS NOT NULL").bind(start, classId).run();
+  return start;
+}

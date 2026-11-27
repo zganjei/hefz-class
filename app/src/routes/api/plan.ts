@@ -77,9 +77,11 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
      hefz: { daysDone: Number(p?.n || 0) }, scores: mine.map(s => ({ week: s.week_number, weekTitle: s.week_title, lesson: s.lesson_title, score: Number(s.score), max: Number(s.max_score), passed: !!s.passed })) };
    });
    for (const r of reg) if (!used.has(r.id)) rows.push({ name: r.full_name, registered: false, phone: r.phone || null, email: null, nationalId: null, code: r.code || null, level: r.level || null, education: r.education || null, hifzAmount: r.hifz_amount || null, tadabburAmount: r.tadabbur_amount || null, notes: r.notes || null, hefz: { daysDone: 0 }, scores: [] });
-   const wk = currentWeek ? all.find(w => w.week_number === currentWeek) : null;
+   // Position of the class = its own program only; the global date-based plan is NOT the class's position.
+   const wk = prog && currentWeek ? all.find(w => w.week_number === currentWeek) : null;
+   const positionNote = (await DB.prepare("SELECT position_note FROM classes WHERE id=?").bind(classId).first<any>())?.position_note || "";
    const sched = reg[0] ? [reg[0].class_day, reg[0].class_time].filter(Boolean).join(" · ") : "";
-   return Response.json({ className: cls.name, schedule: sched, program: progInfo, currentWeek: wk ? { week_number: wk.week_number, title: wk.title } : null, sessionsHeld: null, rows });
+   return Response.json({ className: cls.name, schedule: sched, program: progInfo, programEnded: !!prog && !wk, positionNote, currentWeek: wk ? { week_number: wk.week_number, title: wk.title } : null, sessionsHeld: null, rows });
   }
 
   if (classId) {   // teacher / admin report for one class
