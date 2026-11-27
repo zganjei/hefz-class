@@ -57,23 +57,51 @@ function ClassSheet({ id, back }: { id: string; back: () => void }) {
       <button className="secondary-action" disabled={busy || (term === d.term && pos === d.positionNote)} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, term, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی ترم و جایگاه</button>
     </div>
     <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
-    {d.active.map((l: any) => <Learner key={l.key} l={l} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+    {d.active.map((l: any) => <Learner key={l.key} l={l} classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
+    {d.left.length > 0 && <>
+      <h3 className="sheet-h">سابقه (ترک‌کرده‌ها)</h3>
+      <p className="plan-hint">این‌ها در شمارش فعال‌ها نیستند. سابقه‌شان می‌ماند و هر وقت برگردند می‌توانید ثبت کنید.</p>
+      {d.left.map((l: any) => <Learner key={l.key} l={l} left classPos={d.positionNote} classTerm={d.term} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
+    </>}
     {msg && <p className={msg.includes("✅") ? "hint" : "error-msg"}>{msg}</p>}
   </section>;
 }
 
-function Learner({ l, classId, open, toggle, run, busy, reload }: { l: any; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
+function Learner({ l, left, classTerm, classPos, classId, open, toggle, run, busy, reload }: { l: any; left?: boolean; classTerm: string; classPos: string; classId: string; open: boolean; toggle: () => void; run: (fn: () => Promise<void>) => Promise<void>; busy: boolean; reload: () => Promise<void> }) {
   const [title, setTitle] = useState(""), [score, setScore] = useState(""), [max, setMax] = useState(""), [date, setDate] = useState(""), [note, setNote] = useState("");
   const all = l.digital.length + l.manual.length;
+  const [lt, setLt] = useState(classTerm), [lp, setLp] = useState(classPos), [lr, setLr] = useState(""), [ld, setLd] = useState(""), [confirm, setConfirm] = useState(false);
+  const last = l.history.filter((h: any) => h.classId === classId).slice(-1)[0];
   return <article className="sheet-learner">
-    <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
+    <button type="button" className="sheet-head" onClick={toggle} aria-expanded={open}><b>{l.name}</b><span>{left && last ? "ترک: " + last.date : all ? fa(all) + " نمره" : "بدون نمره"}{l.registered ? "" : " · هنوز وارد نشده"}</span></button>
     {open && <div className="sheet-body">
       <div className="sheet-info">
         {l.phone && <span>تلفن: <bdi dir="ltr">{l.phone}</bdi></span>}{l.email && <span>ایمیل: <bdi dir="ltr">{l.email}</bdi></span>}
         {l.code && <span>کد: {l.code}</span>}{l.level && <span>سطح: {l.level}</span>}{l.education && <span>تحصیلات: {l.education}</span>}
         {l.hifzAmount && <span>حفظ: {l.hifzAmount}</span>}{l.tadabburAmount && <span>تدبر: {l.tadabburAmount}</span>}{l.notes && <span>یادداشت: {l.notes}</span>}
       </div>
+      <h4>سابقه</h4>
+      {l.history.map((h: any) => <div className="simple-row" key={h.id}><b>{h.event === "left" ? "ترک کرد" : "برگشت"} · {h.date}</b><span>{[h.className, h.term, h.position && "جایگاه: " + h.position, h.reason && (h.event === "left" ? "دلیل: " : "یادداشت: ") + h.reason].filter(Boolean).join(" · ")}</span></div>)}
+      {!l.history.length && <p className="empty-state">سابقه‌ای ثبت نشده است.</p>}
+      {left
+        ? <div className="report-form">
+            <h4>بازگشت به کلاس</h4>
+            <label>تاریخ (اختیاری، پیش‌فرض امروز)<input type="date" value={ld} onChange={e => setLd(e.target.value)} /></label>
+            <label>یادداشت (اختیاری)<input value={lr} onChange={e => setLr(e.target.value)} /></label>
+            <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "return", classId, person: l.key, date: ld, reason: lr }); await reload(); })}>ثبت بازگشت</button>
+          </div>
+        : <div className="report-form">
+            <h4>ثبت ترک کلاس</h4>
+            <label>ترم<input value={lt} onChange={e => setLt(e.target.value)} /></label>
+            <label>تا کجا رسیده بود (سوره یا جایگاه)<input value={lp} onChange={e => setLp(e.target.value)} placeholder="مثلاً سوره‌ی فلان، آیه‌ی ۱۰" /></label>
+            <label>دلیل ترک<input value={lr} onChange={e => setLr(e.target.value)} /></label>
+            <label>تاریخ (اختیاری، پیش‌فرض امروز)<input type="date" value={ld} onChange={e => setLd(e.target.value)} /></label>
+            {!confirm ? <button className="secondary-action" disabled={busy || !lr.trim()} onClick={() => setConfirm(true)}>ترک کرد…</button>
+              : <><p className="plan-hint">«{l.name}» از شمارش فعال‌ها کنار می‌رود و در «سابقه» می‌ماند. قابل برگشت است.</p>
+                <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "leave", classId, person: l.key, term: lt, position: lp, reason: lr, date: ld }); setConfirm(false); setLr(""); await reload(); })}>بله، ثبت شود</button>
+                <button className="secondary-action" onClick={() => setConfirm(false)}>انصراف</button></>}
+          </div>}
       <h4>نمره‌ها</h4>
       {l.digital.map((s: any, i: number) => <div className="simple-row" key={"d" + i}><b>{s.title}</b><span>{sc(s.score, s.max)} · آزمون سامانه</span></div>)}
       {l.manual.map((s: any) => <div className="simple-row" key={s.id}><b>{s.title}</b><span>{sc(s.score, s.max)}{s.date ? " · " + s.date : ""}{s.note ? " · " + s.note : ""}</span>

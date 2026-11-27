@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/class-report")({ server: { handlers: 
    const weeks: { week_number: number; title: string; start_date: string | null }[] = prog ? prog.weeks : globalWeeks;
    const dated = weeks.filter(w => w.start_date && w.start_date <= today), last = dated.length ? dated[dated.length - 1] : null;
    const current = last && !(prog && today > addDays(last.start_date!, 6)) ? { week_number: last.week_number, title: last.title } : null;
-   const people = (await classPeople(DB, c.id, registry))?.people || [];
+   const people = ((await classPeople(DB, c.id, registry))?.people || []).filter(p => p.status === "active");
    const manual = (await DB.prepare("SELECT id,registry_id,user_id,title,score,max_score,score_date::text AS score_date FROM class_manual_scores WHERE class_id=? ORDER BY score_date NULLS LAST, created_at").bind(c.id).all<any>()).results || [];
    const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(c.id).all<any>()).results || [];
    const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(c.id).all<any>()).results || [];
