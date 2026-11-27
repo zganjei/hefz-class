@@ -72,7 +72,7 @@ export function Programs() {
     <h3>برنامه‌های ثبت‌شده</h3>
     {!programs.length && <p className="empty-state">هنوز برنامه‌ای ثبت نشده است.</p>}
     {programs.map(p => <div className="simple-row" key={p.id}>
-      <b>{p.name}</b> <small>{fa(p.weeks)} هفته</small>{" "}
+      <b>{p.name}</b> <small>{p.weeks ? `${fa(p.weeks)} هفته` : "خالی، حذف و دوباره بسازید"}</small>{" "}
       {confirmDel === p.id
         ? <><button type="button" className="ghost-wide" disabled={busy} onClick={() => void del(p.id)}>بله، حذف شود</button> <button type="button" className="ghost-wide" onClick={() => setConfirmDel(null)}>انصراف</button></>
         : <button type="button" className="ghost-wide" onClick={() => setConfirmDel(p.id)}>حذف</button>}
@@ -82,7 +82,7 @@ export function Programs() {
     {!classes.length && <p className="empty-state">کلاسی وجود ندارد.</p>}
     {classes.map(c => { const p = pick[c.id] ?? { program: c.program_id || "", start: "" }; const changed = p.program !== (c.program_id || "") || !!p.start; return <div className="report-form" key={c.id}>
       <b>{c.name}</b> <small>{fa(c.member_count)} عضو · {c.program_id ? `شروع هفتهٔ اول: ${c.start_label}` : "برنامهٔ عمومی"}</small>
-      <label>برنامه<select value={p.program} onChange={e => setPick(x => ({ ...x, [c.id]: { ...p, program: e.target.value } }))}><option value="">برنامهٔ عمومی (بدون برنامهٔ جدا)</option>{programs.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+      <label>برنامه<select value={p.program} onChange={e => setPick(x => ({ ...x, [c.id]: { ...p, program: e.target.value } }))}><option value="">برنامهٔ عمومی (بدون برنامهٔ جدا)</option>{programs.filter(x => x.weeks > 0).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
       {p.program && <label>شروع هفتهٔ اول (به نزدیک‌ترین شنبهٔ قبل می‌رود)<input type="date" dir="ltr" value={p.start || ""} min="2020-01-01" placeholder={defaultStart} onChange={e => setPick(x => ({ ...x, [c.id]: { ...p, start: e.target.value } }))} /></label>}
       <button type="button" disabled={busy || !changed} onClick={() => void assign(c)}>ثبت برنامهٔ کلاس</button>
     </div>; })}
