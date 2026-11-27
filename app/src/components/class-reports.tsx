@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { LevelStepFilter, matchesLS } from "./level-step";
 import { lsLabel } from "../lib/level-step";
 
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 
 /** گزارش‌ها: per class (teacher: own classes, admin: all) the number of learners, the class's current program week and each learner's exam scores. */
 export function ClassReports({ classId, embedded }: { classId?: string; embedded?: boolean } = {}) {
-  const [d, setD] = useState<any>(null), [err, setErr] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState("");
+  const [d, setD] = useState<any>(null), [err, setErr] = useState("");
   useEffect(() => { fetch("/api/class-report").then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "خطا"); setD(j); }).catch(e => setErr(e.message)); }, []);
   const Wrap = embedded ? "div" : "section", cls = embedded ? undefined : "panel";
   if (err) return <Wrap className={cls}><p className="error-msg">{err}</p></Wrap>;
@@ -15,8 +14,7 @@ export function ClassReports({ classId, embedded }: { classId?: string; embedded
   return <Wrap className={cls}>
     {!embedded && <h2>گزارش‌ها</h2>}
     {!classId && <p className="plan-hint">{fa(d.totalLearners)} قرآن‌آموز در {fa(d.classes.length)} کلاس</p>}
-    {!classId && <LevelStepFilter classes={d.classes} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
-    {list.filter((c: any) => matchesLS(c, lv, st)).map((c: any) => <article className="report-entry" key={c.id}>
+    {list.map((c: any) => <article className="report-entry" key={c.id}>
       <div className="report-entry-head"><b>{c.name}{lsLabel(c.level, c.step) ? " · " + lsLabel(c.level, c.step) : ""}</b><i className="status">{fa(c.learners.length)} قرآن‌آموز</i></div>
       <small>{c.program ? "برنامه: " + c.program + (c.currentWeek ? " · الان در هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? " · برنامه تمام شده" : " · هنوز شروع نشده") : "جایگاه: " + (c.positionNote || "ثبت نشده") + " · برنامه‌ای به این کلاس وصل نیست"}</small>
       {c.learners.map((l: any) => <div className="simple-row" key={l.id}><b>{l.name}</b>

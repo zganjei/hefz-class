@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { CRITERIA, GROUP_SUGGESTIONS } from "../lib/pass-marks";
 
-import { lsOf } from "./level-step";
-import { lsLabel } from "../lib/level-step";
-type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
 type Mark = { groupId: string; criterion: string; person: string; status: "pass" | "fail"; note: string; source: string; by: string; at: string };
 const NEXT: Record<string, "pass" | "fail" | "none"> = { none: "pass", pass: "fail", fail: "none" };
 const LABEL: Record<string, string> = { none: "ثبت‌نشده", pass: "قبول", fail: "رد" };
@@ -17,10 +14,9 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 }
 
 /** قبول / رد دستی: per class, one group (سوره / گام / آزمون) and one criterion at a time; learners are rows, one tap cycles ثبت‌نشده → قبول → رد. Saved per tap. */
-export function PassMarks({ classes, say }: { classes: Cls[]; say: (m: string) => void }) {
-  const [classId, setClassId] = useState(""), [d, setD] = useState<{ groups: { id: string; title: string }[]; learners: { key: string; name: string }[]; marks: Mark[] } | null>(null);
+export function PassMarks({ classId, say }: { classId: string; say: (m: string) => void }) {
+  const [d, setD] = useState<{ groups: { id: string; title: string }[]; learners: { key: string; name: string }[]; marks: Mark[] } | null>(null);
   const [gid, setGid] = useState(""), [crit, setCrit] = useState("exam"), [title, setTitle] = useState(""), [busy, setBusy] = useState(false), [openNote, setOpenNote] = useState(""), [noteText, setNoteText] = useState(""), [confirmDel, setConfirmDel] = useState(false);
-  useEffect(() => { if (!classId && classes.length === 1) setClassId(classes[0].id); }, [classes]);
   const load = async (keepGroup?: string) => {
     const x = await call("GET", "/api/pass-marks?classId=" + encodeURIComponent(classId));
     setD(x); setGid(g => keepGroup || (x.groups.some((y: any) => y.id === g) ? g : x.groups[0]?.id || ""));
@@ -42,7 +38,6 @@ export function PassMarks({ classes, say }: { classes: Cls[]; say: (m: string) =
     <div className="adm-block">
       <h3>قبول و رد (ثبت دستی)</h3>
       <p className="adm-hint">برای هر قرآن‌آموز، قبول یا رد شدن در آزمون و هر معیار دفتر نمرات را ثبت کنید. هر بار لمس: ثبت‌نشده ← قبول ← رد ← ثبت‌نشده. هر لمس همان لحظه ذخیره می‌شود.</p>
-      <label className="adm-hint">کلاس<select value={classId} onChange={e => setClassId(e.target.value)}><option value="">انتخاب کلاس</option>{classes.map(c => <option value={c.id} key={c.id}>{c.name}{lsLabel(lsOf(c).level, lsOf(c).step) ? " · " + lsLabel(lsOf(c).level, lsOf(c).step) : ""}</option>)}</select></label>
     </div>
     {classId && d && <div className="adm-block">
       {d.groups.length === 0 && <p className="adm-hint">اول یک گروه بسازید؛ مثلاً یک سوره یا «آزمون گام اول».</p>}
