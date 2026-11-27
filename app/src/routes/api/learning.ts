@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass, canManageCourseRow, TEACHES_CLASS_SQL } from "../../lib/access.server";
+import { hasRoleSql, isAdmin, isMemorizer, isStaff } from "../../lib/roles";
 
 export const Route = createFileRoute("/api/learning")({ server: { handlers: {
  GET: async ({ request }) => {
@@ -42,13 +43,13 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    courses.push({...e,weeks:weekData});
   }
   let managedCourses:any[]=[];
-  if(user.role==="admin"||user.role==="teacher"){
-   const mc=user.role==="admin"?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare(`SELECT co.id,co.title,co.description,co.class_id FROM courses co WHERE co.class_id IN (SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}) OR (co.class_id IS NULL AND co.created_by=?) ORDER BY co.created_at DESC`).bind(user.id,user.id,user.id).all<any>();
+  if(isStaff(user)){
+   const mc=isAdmin(user)?await DB.prepare("SELECT id,title,description,class_id FROM courses ORDER BY created_at DESC").all<any>():await DB.prepare(`SELECT co.id,co.title,co.description,co.class_id FROM courses co WHERE co.class_id IN (SELECT c.id FROM classes c WHERE ${TEACHES_CLASS_SQL}) OR (co.class_id IS NULL AND co.created_by=?) ORDER BY co.created_at DESC`).bind(user.id,user.id,user.id).all<any>();
    for(const c of mc.results||[]){
     const weeks=await DB.prepare("SELECT id,week_number,title,due_weekday FROM course_weeks WHERE course_id=? ORDER BY week_number").bind(c.id).all<any>();
     const weekDetails=[];
     for(const w of weeks.results||[]){const lessons=await DB.prepare("SELECT id,lesson_order,title,surah,from_ayah,to_ayah FROM course_lessons WHERE week_id=? ORDER BY lesson_order").bind(w.id).all<any>();weekDetails.push({...w,lessons:lessons.results||[]});}
-    const members=await DB.prepare("SELECT u.id,u.display_name,u.email FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role IN ('memorizer','admin') ORDER BY u.display_name").bind(c.class_id).all<any>();
+    const members=await DB.prepare("SELECT u.id,u.display_name,u.email FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND (" + hasRoleSql("u", "memorizer") + " OR " + hasRoleSql("u", "admin") + ") ORDER BY u.display_name").bind(c.class_id).all<any>();
     const submissions=await DB.prepare("SELECT s.id,s.status,s.note,s.submitted_at,s.feedback,u.display_name,w.week_number,w.title AS week_title FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id JOIN users u ON u.id=e.user_id JOIN course_weeks w ON w.id=s.week_id WHERE e.course_id=? ORDER BY s.submitted_at DESC LIMIT 50").bind(c.id).all<any>();
     managedCourses.push({...c,weeks:weekDetails,members:members.results||[],submissions:submissions.results||[]});
    }
@@ -57,13 +58,13 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
  },
  POST: async ({ request }) => {
   const user = await currentUser(request);
-  if (!user || !["admin","teacher","memorizer"].includes(user.role)) return jsonError("دسترسی ندارید.",403);
+  if (!user || !(isStaff(user)||isMemorizer(user))) return jsonError("دسترسی ندارید.",403);
   const body = await request.json().catch(()=>null) as Record<string,any> | null;
   const action = body?.action;
   const { DB } = bindings();
   if (!DB) return jsonError("پایگاه داده آماده نیست.",503);
   if (action === "review_week") {
-   if (!["admin","teacher"].includes(user.role)) return jsonError("دسترسی ندارید.",403);
+   if (!isStaff(user)) return jsonError("دسترسی ندارید.",403);
    const sid = String(body?.submissionId || ""), status = body?.status;
    if (!sid || !["approved","needs_revision"].includes(status)) return jsonError("درخواست نامعتبر است.");
    const row = await DB.prepare("SELECT s.id,e.class_id FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE s.id=?").bind(sid).first<any>();
@@ -87,7 +88,7 @@ export const Route = createFileRoute("/api/learning")({ server: { handlers: {
    return Response.json({submitted:true});
   }
   if(action==="create_course"||action==="create_week"||action==="create_lesson"||action==="create_question"||action==="enroll"){
-   if(!["admin","teacher"].includes(user.role))return jsonError("فقط استاد یا مدیر می‌تواند محتوا مدیریت کند.",403);
+   if(!isStaff(user))return jsonError("فقط استاد یا مدیر می‌تواند محتوا مدیریت کند.",403);
    if(action==="create_course"){
     const classId=String(body?.classId||""),title=String(body?.title||"").trim().slice(0,120);
     if(!classId||!title)return jsonError("کلاس و عنوان دوره را مشخص کنید.");

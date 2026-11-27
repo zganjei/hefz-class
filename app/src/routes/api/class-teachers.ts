@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
+import { hasRoleSql, isAdmin } from "../../lib/roles";
 
 // Admin-only management of which teachers may manage a class (and therefore its courses, reports, assignments).
 export const Route = createFileRoute("/api/class-teachers")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin") return jsonError("فقط مدیر می‌تواند اساتید کلاس را ببیند.", 403);
+  if (!isAdmin(user)) return jsonError("فقط مدیر می‌تواند اساتید کلاس را ببیند.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const classId = new URL(request.url).searchParams.get("classId") || "";
   if (!classId) return jsonError("کلاس را مشخص کنید.");
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/api/class-teachers")({ server: { handlers
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin") return jsonError("فقط مدیر می‌تواند استاد به کلاس اضافه کند.", 403);
+  if (!isAdmin(user)) return jsonError("فقط مدیر می‌تواند استاد به کلاس اضافه کند.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const classId = typeof body?.classId === "string" ? body.classId : "";
@@ -27,8 +28,8 @@ export const Route = createFileRoute("/api/class-teachers")({ server: { handlers
   if (!classId || (!userId && !email)) return jsonError("کلاس و استاد (شناسه یا ایمیل) را مشخص کنید.");
   const cls = await DB.prepare("SELECT id FROM classes WHERE id=?").bind(classId).first(); if (!cls) return jsonError("کلاس پیدا نشد.", 404);
   const teacher = userId
-    ? await DB.prepare("SELECT id FROM users WHERE id=? AND role='teacher' AND active=1").bind(userId).first<any>()
-    : await DB.prepare("SELECT id FROM users WHERE email=? AND role='teacher' AND active=1").bind(email).first<any>();
+    ? await DB.prepare("SELECT u.id FROM users u WHERE u.id=? AND " + hasRoleSql("u", "teacher") + " AND u.active=1").bind(userId).first<any>()
+    : await DB.prepare("SELECT u.id FROM users u WHERE u.email=? AND " + hasRoleSql("u", "teacher") + " AND u.active=1").bind(email).first<any>();
   if (teacher) {
     await DB.prepare("INSERT INTO class_teachers(class_id,user_id,added_by) VALUES(?,?,?) ON CONFLICT DO NOTHING").bind(classId, teacher.id, user.id).run();
     return Response.json({ added: true, userId: teacher.id });
@@ -41,7 +42,7 @@ export const Route = createFileRoute("/api/class-teachers")({ server: { handlers
  },
  DELETE: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin") return jsonError("فقط مدیر می‌تواند استاد را از کلاس حذف کند.", 403);
+  if (!isAdmin(user)) return jsonError("فقط مدیر می‌تواند استاد را از کلاس حذف کند.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const classId = typeof body?.classId === "string" ? body.classId : "", userId = typeof body?.userId === "string" ? body.userId : "";

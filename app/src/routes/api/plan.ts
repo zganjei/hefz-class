@@ -6,6 +6,7 @@ import { canManageClass } from "../../lib/access.server";
 import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, isIsoDate, locateDay, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
 import { programForClass, programForUser, type ClassProgram } from "../../lib/program.server";
 import { resolveRange, quranComUrl, tadabburFor, audioFor, translationFor } from "../../lib/quran.server";
+import { hasRoleSql } from "../../lib/roles";
 
 const TRACK = "online";   // an offline track will reuse hefz_daily_ticks.track later
 
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    const cn = norm(cls.name);
    const reg = ((await DB.prepare("SELECT id,full_name,code,class_name,class_day,class_time,level,education,hifz_amount,tadabbur_amount,phone,notes FROM registry_people WHERE kind='student' AND status='active' ORDER BY full_name").all<any>()).results || [])
     .filter(r => { const rn = norm(r.class_name); return rn.length >= 3 && cn.length >= 3 && (rn === cn || rn.includes(cn) || cn.includes(rn)); });
-   const users = (await DB.prepare("SELECT u.id,u.display_name,u.email,u.phone,(SELECT a.national_id FROM applications a WHERE lower(a.email)=lower(u.email) AND a.national_id IS NOT NULL AND a.national_id<>'' ORDER BY a.created_at DESC LIMIT 1) AS national_id FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role='memorizer' AND u.active=1 ORDER BY u.display_name").bind(classId).all<any>()).results || [];
+   const users = (await DB.prepare("SELECT u.id,u.display_name,u.email,u.phone,(SELECT a.national_id FROM applications a WHERE lower(a.email)=lower(u.email) AND a.national_id IS NOT NULL AND a.national_id<>'' ORDER BY a.created_at DESC LIMIT 1) AS national_id FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND " + hasRoleSql("u", "memorizer") + " AND u.active=1 ORDER BY u.display_name").bind(classId).all<any>()).results || [];
    const progress = (prog
     ? (await DB.prepare("SELECT t.user_id,COUNT(*) AS n,MAX(t.done_at) AS last FROM hefz_program_ticks t JOIN class_members m ON m.user_id=t.user_id AND m.class_id=? WHERE t.program_id=? AND t.item='memorize' GROUP BY t.user_id").bind(classId, prog.programId).all<any>()).results
     : (await DB.prepare("SELECT p.user_id,COUNT(*) AS n,MAX(p.done_at) AS last FROM hefz_plan_progress p JOIN class_members m ON m.user_id=p.user_id AND m.class_id=? GROUP BY p.user_id").bind(classId).all<any>()).results) || [];
@@ -89,7 +90,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    const wanted = Number(url.searchParams.get("week") || currentWeek || lastDated?.week_number || 0);
    const week = all.find(w => w.week_number === wanted && isOpen(w, today));
    if (!week) return jsonError(prog && !dated.length ? `برنامهٔ این کلاس (${prog.name}) از ${jalaliLabel(prog.startDate)} شروع می‌شود.` : "هفته پیدا نشد یا هنوز باز نشده است.", 404);
-   const members = (await DB.prepare("SELECT u.id,u.display_name FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role IN ('memorizer','admin') AND u.active=1 ORDER BY u.display_name").bind(classId).all<{ id: string; display_name: string }>()).results || [];
+   const members = (await DB.prepare("SELECT u.id,u.display_name FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND (" + hasRoleSql("u", "memorizer") + " OR " + hasRoleSql("u", "admin") + ") AND u.active=1 ORDER BY u.display_name").bind(classId).all<{ id: string; display_name: string }>()).results || [];
    type Tick = { user_id: string; day_index: number; done_at: string };
    const prog2: Tick[] = (prog
     ? (await DB.prepare("SELECT t.user_id,t.day_index,t.done_at FROM hefz_program_ticks t JOIN class_members m ON m.user_id=t.user_id AND m.class_id=? WHERE t.program_id=? AND t.week_index=? AND t.item='memorize'").bind(classId, prog.programId, week.week_number).all<Tick>()).results

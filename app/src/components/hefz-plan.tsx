@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type User = { id: string; role: "admin" | "teacher" | "memorizer"; display_name: string };
+type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[]; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
 type Week = { week_number: number; title: string; mushaf_page: number | null; mushaf_page2: number | null; open: boolean; current: boolean; total: number; doneNew: number; days: Day[] };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
@@ -214,13 +214,7 @@ export function TeacherPlan({ classes, fixedClassId, onAttach }: { classes: { id
   </section>;
 }
 
-export function HefzPlan({ user, classes }: { user: User; classes: { id: string; name: string }[] }) {
-  const isAdmin = user.role === "admin", isTeacher = user.role === "teacher";
-  // Teachers are not learners: they see only the class report. Admins keep both tabs.
-  const [view, setView] = useState<"mine" | "class">(isAdmin || isTeacher ? "class" : "mine");
-  const current = isTeacher ? "class" : isAdmin ? view : "mine";
-  return <section className="m-plan">
-    {isAdmin && <div className="m-seg"><button className={current === "class" ? "on" : ""} onClick={() => setView("class")}>گزارش کلاس</button><button className={current === "mine" ? "on" : ""} onClick={() => setView("mine")}>برنامه‌ی من</button></div>}
-    {current === "mine" ? <LearnerPlan /> : <TeacherPlan classes={classes} />}
-  </section>;
+/** The «برنامه» tab = the person's OWN plan as a قرآن‌آموز (shown to any person who holds that role; staff tools live under «کلاس‌ها»). */
+export function HefzPlan(_props: { user: User; classes: { id: string; name: string }[] }) {
+  return <section className="m-plan"><LearnerPlan /></section>;
 }

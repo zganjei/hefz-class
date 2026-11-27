@@ -7,6 +7,7 @@ import { canManageClass } from "../../lib/access.server";
 import * as XLSX from "xlsx";
 import type { ProgramWeek } from "../../lib/program-parse";
 import { programToRows, programFileName, summarize } from "../../lib/program-export";
+import { isStaff, isAdmin, isTeacher } from "../../lib/roles";
 
 const clip = (v: unknown, max: number) => (typeof v === "string" || typeof v === "number" ? String(v).trim().slice(0, max) : "");
 const strList = (v: unknown, maxItems: number) => (Array.isArray(v) ? v : []).slice(0, maxItems).map(x => clip(x, 200)).filter(Boolean);
@@ -15,11 +16,11 @@ const strList = (v: unknown, maxItems: number) => (Array.isArray(v) ? v : []).sl
 export const Route = createFileRoute("/api/programs")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const url = new URL(request.url), one = url.searchParams.get("id"), view = url.searchParams.get("view");
   if (one || view) {   // admin only: one program's overview or its xlsx download
-   if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+   if (!isAdmin(user)) return jsonError("دسترسی فقط برای مدیر است.", 403);
    const p = await DB.prepare("SELECT id,name,created_at::text AS created_at FROM hefz_programs WHERE id=?").bind(one || "").first<{ id: string; name: string; created_at: string }>();
    if (!p) return jsonError("برنامه پیدا نشد (شاید حذف شده؛ صفحه را تازه کنید).", 404);
    const rows = (await DB.prepare("SELECT title,days FROM hefz_program_weeks WHERE program_id=? ORDER BY week_index").bind(p.id).all<{ title: string; days: unknown }>()).results || [];
@@ -36,17 +37,17 @@ export const Route = createFileRoute("/api/programs")({ server: { handlers: {
    return Response.json({ id: p.id, name: p.name, created: p.created_at ? jalaliLabel(p.created_at.slice(0, 10)) : null, classes: cls.map(c => c.name), ...summarize(weeks) });
   }
   const programs = (await DB.prepare("SELECT p.id,p.name,p.created_at::text AS created_at,(SELECT COUNT(*) FROM hefz_program_weeks w WHERE w.program_id=p.id) AS weeks FROM hefz_programs p ORDER BY p.created_at DESC").all<any>()).results || [];
-  if (user.role === "teacher") return Response.json({ programs: programs.map(p => ({ id: p.id, name: p.name, weeks: Number(p.weeks) })) });   // teachers: names and week counts only
+  if (isTeacher(user)) return Response.json({ programs: programs.map(p => ({ id: p.id, name: p.name, weeks: Number(p.weeks) })) });   // teachers: names and week counts only
   const classes = (await DB.prepare("SELECT c.id,c.name,c.program_id,c.program_start::text AS program_start,(SELECT COUNT(*) FROM class_members m WHERE m.class_id=c.id) AS member_count FROM classes c ORDER BY c.name").all<any>()).results || [];
   return Response.json({ programs: programs.map(p => ({ ...p, weeks: Number(p.weeks) })), classes: classes.map(c => ({ ...c, member_count: Number(c.member_count), start_label: c.program_start ? jalaliLabel(c.program_start) : null })), defaultStart: saturdayOnOrBefore(stockholmToday()) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی فقط برای مدیر یا استاد است.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, any> | null;
   if (!body) return jsonError("درخواست نامعتبر است.");
-  if (user.role === "teacher" && body.action !== "assign") return jsonError("دسترسی فقط برای مدیر است.", 403);
+  if (isTeacher(user) && body.action !== "assign") return jsonError("دسترسی فقط برای مدیر است.", 403);
 
   if (body.action === "create") {
    const name = clip(body.name, 120); if (!name) return jsonError("نام برنامه را بنویسید.");

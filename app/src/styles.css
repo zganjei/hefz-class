@@ -419,3 +419,14 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .m-top .m-logout{white-space:nowrap;padding:0 10px;min-width:40px;flex:none}
 .m-top-actions{flex:none}
 @media (max-width:420px){.m-top .m-logout.srch .lbl{display:none}.m-top .m-logout.srch{padding:0 11px;font-size:16px}}
+
+/* roles: chips on each account row, checkbox group in the new-account form */
+.adm-roles{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.m-app .adm-chip{min-height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--bd-d9b2a8,#d9d4c4);background:var(--bg-fff,#fff);color:var(--tx-174b3b,#174b3b);font-size:14px;font-weight:600;cursor:pointer}
+.m-app .adm-chip.on{background:#174b3b;color:#fff;border-color:#174b3b}
+.m-app .adm-chip:disabled{opacity:.6}
+.adm-checks{border:0;margin:0;padding:0;display:grid;gap:8px}
+.adm-checks legend{font-size:14px;color:var(--tx-6f7f75);padding:0;margin-bottom:4px}
+.m-app .adm-checks label{display:flex;flex-direction:row;align-items:center;gap:10px;min-height:44px;font-size:16px}
+.m-app .adm-checks input[type=checkbox]{width:22px;height:22px;min-height:0;flex:none;margin:0}
+.adm-role-badge{display:inline-block;padding:2px 9px;border-radius:10px;background:var(--bg-ece8d9,#ece8d9);color:var(--tx-174b3b,#174b3b)!important;font-size:12.5px!important;font-weight:600}

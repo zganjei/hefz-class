@@ -4,6 +4,7 @@ import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
 import { classPeople } from "../../lib/class-people.server";
 import { CRITERION_KEYS } from "../../lib/pass-marks";
+import { isStaff } from "../../lib/roles";
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
@@ -11,7 +12,7 @@ const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(
 export const Route = createFileRoute("/api/pass-marks")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const classId = new URL(request.url).searchParams.get("classId");
   if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/api/pass-marks")({ server: { handlers: {
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-  if (user.role !== "admin" && user.role !== "teacher") return jsonError("دسترسی ندارید.", 403);
+  if (!isStaff(user)) return jsonError("دسترسی ندارید.", 403);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null; if (!body) return jsonError("درخواست نامعتبر است.");
   const action = String(body.action || ""), classId = clip(body.classId, 80);

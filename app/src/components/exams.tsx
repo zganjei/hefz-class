@@ -3,7 +3,7 @@ import { navTo, goBack, useNavSegs } from "../lib/nav";
 import { Notice } from "./notice";
 import { PassMarks } from "./pass-marks";
 
-type User = { id: string; role: "admin" | "teacher" | "memorizer" };
+type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[] };
 const KIND: Record<string, string> = { hifz: "حسن حفظ", tadabbur: "تدبر", vocabulary: "لغت", final: "عمومی" };
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
 
@@ -16,7 +16,8 @@ async function call(method: "GET" | "POST", path: string, body?: unknown) {
 
 /** آزمون‌های کلاس: staff (inside an opened class, `classId` required) create exams + questions and see scores of THAT class only; learners take each exam once. `classes` is accepted for compatibility and unused. */
 export function Exams({ user, classId, embedded }: { user: User; classes?: unknown; classId?: string; embedded?: boolean }) {
-  const staff = user.role !== "memorizer";
+  // embedded (inside a class) = staff tools; the standalone «آزمون‌ها» tab is always the learner view, also for a teacher/admin who is a قرآن‌آموز
+  const staff = !!embedded;
   const segs = useNavSegs(), off = embedded ? 3 : 1, base = segs.slice(0, off);
   const inView = embedded ? segs[0] === "classes" && segs[2] === "exams" && segs[1] === classId : segs[0] === "exams";
   const open = inView ? segs[off] || "" : "", setOpen = (id: string) => id ? navTo([...base, id], "push") : goBack(base);
@@ -79,7 +80,7 @@ function StaffExam({ id, back, run, busy }: { id: string; back: () => void } & R
 
 function LearnerList({ openExam, run }: { openExam: (id: string) => void; run: RunP["run"] }) {
   const [exams, setExams] = useState<any[] | null>(null);
-  useEffect(() => { void run(async () => { setExams((await call("GET", "/api/exams")).exams || []); }); }, []);
+  useEffect(() => { void run(async () => { setExams((await call("GET", "/api/exams?mine=1")).exams || []); }); }, []);
   if (!exams) return <p className="empty-state">در حال بارگذاری…</p>;
   return <>
     {exams.map(e => <div className="simple-row" key={e.id}><b>{e.title}</b><span>{e.class_name}{e.done ? " · نمره: " + fa(e.score) + " از " + fa(e.max_score) : e.questions ? "" : " · هنوز سؤالی ندارد"}</span>{!e.done && e.questions > 0 && <button className="secondary-action" onClick={() => openExam(e.id)}>شروع آزمون</button>}</div>)}
@@ -89,7 +90,7 @@ function LearnerList({ openExam, run }: { openExam: (id: string) => void; run: R
 
 function TakeExam({ id, back, run, busy }: { id: string; back: () => void } & RunP) {
   const [d, setD] = useState<any>(null), [ans, setAns] = useState<Record<string, string>>({}), [res, setRes] = useState<{ score: number; maxScore: number } | null>(null);
-  useEffect(() => { void run(async () => { setD(await call("GET", "/api/exams?examId=" + encodeURIComponent(id))); }); }, [id]);
+  useEffect(() => { void run(async () => { setD(await call("GET", "/api/exams?mine=1&examId=" + encodeURIComponent(id))); }); }, [id]);
   if (!d) return <p className="empty-state">در حال بارگذاری…</p>;
   const r = res || (d.done ? { score: d.score, maxScore: d.maxScore } : null);
   if (r) return <><h3>{d.exam.title}</h3><div className="invite-result"><b>نمره‌ی شما: {fa(r.score)} از {fa(r.maxScore)}</b></div><button className="secondary-action" onClick={back}>→ آزمون‌ها</button></>;

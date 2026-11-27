@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { normClassName as norm } from "../../lib/class-name";
+import { hasRoleSql, isAdmin } from "../../lib/roles";
 
 /** Distinct registry class names (students), grouped by normalised name, split into new vs already existing classes. */
 async function compute(DB: any) {
@@ -26,7 +27,7 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   if (!cls) return null;
   const c = async (sql: string, ...a: unknown[]) => num(await DB.prepare(sql).bind(...a).first());
   const otherMembers = await c("SELECT COUNT(*) AS n FROM class_members WHERE class_id=? AND user_id<>?", classId, adminId);
-  const otherTeachers = await c("SELECT COUNT(*) AS n FROM class_teachers ct JOIN users u ON u.id=ct.user_id WHERE ct.class_id=? AND u.role='teacher'", classId);
+  const otherTeachers = await c("SELECT COUNT(*) AS n FROM class_teachers ct JOIN users u ON u.id=ct.user_id WHERE ct.class_id=? AND " + hasRoleSql("u", "teacher") + "", classId);
   const exams = await c("SELECT COUNT(*) AS n FROM class_exams WHERE class_id=?", classId);
   const assignments = await c("SELECT COUNT(*) AS n FROM assignments WHERE class_id=?", classId);
   const reports = await c("SELECT COUNT(*) AS n FROM reports WHERE class_id=?", classId);
@@ -55,7 +56,7 @@ export const Route = createFileRoute("/api/registry-classes")({ server: { handle
   // Admin-only preview: nothing is written.
   GET: async ({ request }) => {
     const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-    if (user.role !== "admin") return jsonError("فقط مدیر دسترسی دارد.", 403);
+    if (!isAdmin(user)) return jsonError("فقط مدیر دسترسی دارد.", 403);
     const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
     const inspect = new URL(request.url).searchParams.get("inspect");
     if (inspect) { const r = await inspectClass(DB, inspect, user.id); return r ? Response.json(r) : jsonError("کلاس پیدا نشد.", 404); }
@@ -66,7 +67,7 @@ export const Route = createFileRoute("/api/registry-classes")({ server: { handle
   // Admin-only, idempotent: creates the missing classes (admin as owner), recomputed server-side so a double press creates nothing twice.
   POST: async ({ request }) => {
     const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-    if (user.role !== "admin") return jsonError("فقط مدیر دسترسی دارد.", 403);
+    if (!isAdmin(user)) return jsonError("فقط مدیر دسترسی دارد.", 403);
     const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
     const { toCreate } = await compute(DB);
     const created: string[] = [];
@@ -81,7 +82,7 @@ export const Route = createFileRoute("/api/registry-classes")({ server: { handle
   // Admin-only: delete an EMPTY class (re-checked here; the UI asks for a second tap first). Never deletes a class that has real data.
   DELETE: async ({ request }) => {
     const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-    if (user.role !== "admin") return jsonError("فقط مدیر دسترسی دارد.", 403);
+    if (!isAdmin(user)) return jsonError("فقط مدیر دسترسی دارد.", 403);
     const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
     const body = await request.json().catch(() => null) as { classId?: unknown } | null;
     const classId = typeof body?.classId === "string" ? body.classId : "";

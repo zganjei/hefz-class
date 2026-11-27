@@ -1,5 +1,6 @@
 import { bindings } from "./bindings.server";
 import { normClassName } from "./class-name";
+import { hasRoleSql } from "./roles";
 
 type DB = NonNullable<ReturnType<typeof bindings>["DB"]>;
 
@@ -27,7 +28,7 @@ export async function classPeople(DB: DB, classId: string, registry?: any[]): Pr
   if (!cls) return null;
   const cn = normClassName(cls.name);
   const reg = (registry ?? await registryStudents(DB)).filter(r => { const rn = normClassName(r.class_name); return rn.length >= 3 && cn.length >= 3 && (rn === cn || rn.includes(cn) || cn.includes(rn)); });
-  const users = (await DB.prepare("SELECT u.id,u.display_name,u.email,u.phone FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND u.role='memorizer' AND u.active=1 ORDER BY u.display_name").bind(classId).all<any>()).results || [];
+  const users = (await DB.prepare("SELECT u.id,u.display_name,u.email,u.phone FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND " + hasRoleSql("u", "memorizer") + " AND u.active=1 ORDER BY u.display_name").bind(classId).all<any>()).results || [];
   const used = new Set<string>(), people: Person[] = [];
   for (const u of users) {
     const r = reg.find(x => !used.has(x.id) && ((tail(x.phone) && tail(x.phone) === tail(u.phone)) || normClassName(x.full_name) === normClassName(u.display_name)));

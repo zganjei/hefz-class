@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
-import { teacherKey, isNoTeacher } from "../../lib/teacher-name";
+import { hasRoleSql, isAdmin } from "../../lib/roles";
+import { mergeRegistryAccounts } from "../../lib/registry-merge";
 
 const FIELDS = ["full_name","code","class_name","teacher_name","class_day","class_time","level","education","hifz_amount","tadabbur_amount","phone","bale_number","bale_id","email","resume","notes","status"] as const;
 const KINDS = ["student","teacher","supporter"];
@@ -16,54 +17,24 @@ function rowValues(r: Record<string, unknown>) {
 export const Route = createFileRoute("/api/registry")({ server: { handlers: {
   GET: async ({ request }) => {
     const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-    if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+    if (!isAdmin(user)) return jsonError("دسترسی فقط برای مدیر است.", 403);
     const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
     const rows = await DB.prepare("SELECT * FROM registry_people ORDER BY kind, class_name, full_name").all();
     const people: any[] = (rows as any).results ?? rows;
-    // «اساتید» = registry teacher rows + active staff accounts + teacher names found on registry students (same source/normalization as stats «به تفکیک استاد»).
+    // «اساتید» = registry teacher rows + accounts that HOLD the teacher role + teacher names found on registry students.
+    // «پشتیبان‌ها» = registry supporter rows + accounts that hold the supporter role. Being admin (or attached to a class) does not make anyone a teacher.
     let noTeacher = 0;
     try {
-      const byKey = new Map<string, any>();
-      for (const r of people) if (r.kind === "teacher") { r.sources = ["registry"]; r.learners = 0; byKey.set(teacherKey(r.full_name), r); }
-      const addCls = (row: any, names: string[]) => { const have = String(row.class_name || "").split("،").map((x) => x.trim()).filter(Boolean); for (const n of names) if (n && !have.includes(n)) have.push(n); row.class_name = have.join("، "); };
-      const accs = ((await DB.prepare("SELECT id,display_name,role,phone,email FROM users WHERE role IN ('teacher','admin') AND active=1 ORDER BY display_name").all()) as any).results ?? [];
+      const accs = ((await DB.prepare("SELECT u.id,u.display_name,u.phone,u.email FROM users u WHERE u.active=1 AND " + hasRoleSql("u", "teacher") + " ORDER BY u.display_name").all()) as any).results ?? [];
+      const sups = ((await DB.prepare("SELECT u.id,u.display_name,u.phone,u.email FROM users u WHERE u.active=1 AND " + hasRoleSql("u", "supporter") + " ORDER BY u.display_name").all()) as any).results ?? [];
       const links = ((await DB.prepare("SELECT ct.user_id AS uid, c.name AS cname FROM class_teachers ct JOIN classes c ON c.id=ct.class_id UNION SELECT c.teacher_id AS uid, c.name AS cname FROM classes c").all()) as any).results ?? [];
-      const byUser: Record<string, string[]> = {};
-      for (const l of links) { (byUser[l.uid] ||= []); if (l.cname && !byUser[l.uid].includes(l.cname)) byUser[l.uid].push(l.cname); }
-      for (const a of accs) {
-        const cls = byUser[a.id] || [];
-        if (a.role === "admin" && !cls.length) continue; // admins only appear when they teach a class
-        const k = teacherKey(a.display_name); if (!k) continue;
-        const hit = byKey.get(k);
-        if (hit) { hit.sources.push("account"); addCls(hit, cls); continue; }
-        const row = { id: "acct:" + a.id, kind: "teacher", full_name: a.display_name, class_name: "", phone: a.phone || "", email: a.email && !String(a.email).includes("@phone.") ? a.email : "", status: "active", sources: ["account"], learners: 0, readonly: true };
-        addCls(row, cls); people.push(row); byKey.set(k, row);
-      }
-      const counts = new Map<string, { raw: Map<string, number>; n: number; cls: string[] }>();
-      for (const st of people.filter((x) => x.kind === "student")) {
-        if (st.status === "inactive") continue;
-        if (isNoTeacher(st.teacher_name)) { noTeacher++; continue; }
-        const k = teacherKey(st.teacher_name); let c = counts.get(k); if (!c) counts.set(k, c = { raw: new Map(), n: 0, cls: [] });
-        const rw = String(st.teacher_name).trim();
-        c.n++; c.raw.set(rw, (c.raw.get(rw) || 0) + 1);
-        if (st.class_name && !c.cls.includes(st.class_name)) c.cls.push(st.class_name);
-      }
-      for (const [k, c] of counts) {
-        let row = byKey.get(k);
-        if (!row) {
-          const best = [...c.raw.entries()].sort((x, y) => y[1] - x[1])[0][0];
-          row = { id: "stu:" + k, kind: "teacher", full_name: best, class_name: "", status: "active", sources: [], learners: 0, readonly: true, derived: true };
-          people.push(row); byKey.set(k, row);
-        }
-        row.sources.push("students"); row.learners = c.n; addCls(row, c.cls);
-      }
-      for (const r of people) if (r.kind === "teacher") r.has_account = r.sources.includes("account");
-    } catch { /* class_teachers/phone may be missing in old DBs: registry rows still returned */ }
+      noTeacher = mergeRegistryAccounts(people, accs, sups, links);
+    } catch { /* class_teachers/phone/user_roles may be missing in old DBs: registry rows still returned */ }
     return Response.json({ people, noTeacher });
   },
   POST: async ({ request }) => {
     const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
-    if (user.role !== "admin") return jsonError("دسترسی فقط برای مدیر است.", 403);
+    if (!isAdmin(user)) return jsonError("دسترسی فقط برای مدیر است.", 403);
     const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
     const body = await request.json().catch(() => null) as Record<string, any> | null;
     if (!body) return jsonError("درخواست نامعتبر است.");
