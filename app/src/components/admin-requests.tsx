@@ -37,7 +37,7 @@ export function AdminRequests({ applications, busy, decide, decisionNote, classR
         </>}
       </div>
     </section>
-    <Acc title="برنامه‌ها" open={open === "programs"} onToggle={() => toggle("programs")}><Programs refreshKey={classRev} /></Acc>
+    <Acc title="برنامه‌های حفظ"open={open === "programs"} onToggle={() => toggle("programs")}><Programs refreshKey={classRev} /></Acc>
     <Acc title="کلاس‌ها و استادها" open={open === "classes"} onToggle={() => toggle("classes")}><ClassTeachers refreshKey={classRev} /><RegistryClasses onCreated={onCreated} /></Acc>
     <Acc title="حساب‌ها" open={open === "accounts"} onToggle={() => toggle("accounts")}><StaffAccounts /></Acc>
   </div>;
