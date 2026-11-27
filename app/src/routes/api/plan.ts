@@ -1,3 +1,4 @@
+import { normClassName } from "../../lib/class-name";
 import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
@@ -56,7 +57,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
    const cls = await DB.prepare("SELECT id,name FROM classes WHERE id=?").bind(classId).first<{ id: string; name: string }>();
    if (!cls) return jsonError("کلاس پیدا نشد.", 404);
-   const norm = (s: unknown) => String(s ?? "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/[ً-ٟ‌]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+   const norm = normClassName;
    const tail = (s: unknown) => String(s ?? "").replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[^0-9]/g, "").slice(-10);
    const cn = norm(cls.name);
    const reg = ((await DB.prepare("SELECT id,full_name,code,class_name,class_day,class_time,level,education,hifz_amount,tadabbur_amount,phone,notes FROM registry_people WHERE kind='student' AND status='active' ORDER BY full_name").all<any>()).results || [])
