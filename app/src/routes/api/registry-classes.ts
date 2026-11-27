@@ -31,8 +31,13 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   const assignments = await c("SELECT COUNT(*) AS n FROM assignments WHERE class_id=?", classId);
   const reports = await c("SELECT COUNT(*) AS n FROM reports WHERE class_id=?", classId);
   const program = await c("SELECT COUNT(*) AS n FROM classes WHERE id=? AND program_id IS NOT NULL", classId);
-  const courseData = await c("SELECT (SELECT COUNT(*) FROM course_weeks w JOIN courses co ON co.id=w.course_id WHERE co.class_id=?) + (SELECT COUNT(*) FROM course_enrollments WHERE class_id=?) AS n", classId, classId);
-  const emptyCourses = await c("SELECT COUNT(*) AS n FROM courses WHERE class_id=?", classId);
+  // Old course structure is being dropped: its data is removable (not a blocker), but shown with exact counts. All child tables cascade from courses/classes.
+  const courses = await c("SELECT COUNT(*) AS n FROM courses WHERE class_id=?", classId);
+  const weeks = await c("SELECT COUNT(*) AS n FROM course_weeks w JOIN courses co ON co.id=w.course_id WHERE co.class_id=?", classId);
+  const lessons = await c("SELECT COUNT(*) AS n FROM course_lessons l JOIN course_weeks w ON w.id=l.week_id JOIN courses co ON co.id=w.course_id WHERE co.class_id=?", classId);
+  const enrollments = await c("SELECT COUNT(*) AS n FROM course_enrollments WHERE class_id=?", classId);
+  const submissions = await c("SELECT COUNT(*) AS n FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE e.class_id=?", classId);
+  const learners = ((await DB.prepare("SELECT DISTINCT u.display_name AS name FROM users u WHERE u.id IN (SELECT e.user_id FROM weekly_submissions s JOIN course_enrollments e ON e.id=s.enrollment_id WHERE e.class_id=? UNION SELECT p.user_id FROM lesson_progress p JOIN course_lessons l ON l.id=p.lesson_id JOIN course_weeks w ON w.id=l.week_id JOIN courses co ON co.id=w.course_id WHERE co.class_id=? UNION SELECT a.user_id FROM quiz_attempts a JOIN course_lessons l ON l.id=a.lesson_id JOIN course_weeks w ON w.id=l.week_id JOIN courses co ON co.id=w.course_id WHERE co.class_id=?) ORDER BY 1").bind(classId, classId, classId).all()).results || []).map((r: any) => String(r.name));
   const blockers: string[] = [];
   if (otherMembers) blockers.push(`${otherMembers} عضو (غیر از شما)`);
   if (otherTeachers) blockers.push("معلم دارد");
@@ -40,8 +45,8 @@ async function inspectClass(DB: any, classId: string, adminId: string) {
   if (assignments) blockers.push(`${assignments} برنامه‌ی ثبت‌شده`);
   if (reports) blockers.push(`${reports} گزارش`);
   if (program) blockers.push("برنامه‌ی مطالعه به آن وصل است");
-  if (courseData) blockers.push("اطلاعات دوره/هفته دارد");
-  return { id: cls.id as string, name: cls.name as string, blockers, willRemove: ["خود کلاس", ...(await c("SELECT COUNT(*) AS n FROM class_members WHERE class_id=? AND user_id=?", classId, adminId) ? ["عضویت شما در کلاس"] : []), ...(emptyCourses ? [`${emptyCourses} دوره‌ی خالی`] : [])] };
+  const courseLine = courses || weeks || lessons || enrollments || submissions ? `اطلاعات قدیمی دوره: ${courses} دوره، ${weeks} هفته، ${lessons} درس، ${enrollments} ثبت‌نام، ${submissions} تحویل` + (learners.length ? ` (قرآن‌آموزان دارای تحویل/پیشرفت/آزمون: ${learners.join("، ")})` : "") : "";
+  return { id: cls.id as string, name: cls.name as string, blockers, willRemove: ["خود کلاس", ...(await c("SELECT COUNT(*) AS n FROM class_members WHERE class_id=? AND user_id=?", classId, adminId) ? ["عضویت شما در کلاس"] : []), ...(courseLine ? [courseLine] : [])] };
 }
 
 export const Route = createFileRoute("/api/registry-classes")({ server: { handlers: {
@@ -82,9 +87,7 @@ export const Route = createFileRoute("/api/registry-classes")({ server: { handle
     const r = await inspectClass(DB, classId, user.id);
     if (!r) return jsonError("کلاس پیدا نشد.", 404);
     if (r.blockers.length) return jsonError("این کلاس خالی نیست و حذف نشد: " + r.blockers.join("، ") + ".", 409);
-    await DB.prepare("DELETE FROM courses WHERE class_id=?").bind(classId).run();
-    await DB.prepare("DELETE FROM class_members WHERE class_id=?").bind(classId).run();
-    await DB.prepare("DELETE FROM class_teachers WHERE class_id=?").bind(classId).run();
+    // One statement = atomic: every child table (courses → weeks → lessons/questions/progress/attempts, enrollments → submissions, members, teachers) cascades from classes via ON DELETE CASCADE.
     await DB.prepare("DELETE FROM classes WHERE id=?").bind(classId).run();
     return Response.json({ deleted: r.name });
   }

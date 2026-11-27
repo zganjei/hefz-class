@@ -47,7 +47,7 @@ export function RegistryClasses({ onCreated }: { onCreated?: () => void }) {
             <b>{insp.name}</b>
             {insp.blockers.length
               ? <p className="error-msg">خالی نیست، پس حذف نمی‌شود: {insp.blockers.join("، ")}.</p>
-              : <><p>این موارد برداشته می‌شود: {insp.willRemove.join("، ")}. این کار قابل برگشت نیست.</p>
+              : <><p>این موارد برداشته می‌شود (قابل برگشت نیست):</p><ul>{insp.willRemove.map(w => <li key={w}>{w}</li>)}</ul>
                 <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { try { const d = await call("DELETE", "/api/registry-classes", { classId: insp.id }); setInsp(null); setAll((await call("GET", "/api/registry-classes?classes=1")).classes); setDmsg(`کلاس «${d.deleted}» حذف شد ✅`); onCreated?.(); } catch (e: any) { setDmsg(e.message); } })}>بله، حذف شود</button></>}
             <button className="secondary-action" onClick={() => { setInsp(null); setActiveId(""); setDmsg(""); }}>انصراف</button>
           </div>}
