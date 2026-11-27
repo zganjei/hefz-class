@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { navTo, goBack, useNavSegs } from "../lib/nav";
 import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
@@ -26,11 +27,13 @@ const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people"
 
 /** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs اطلاعات کلاس / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
 export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
-  const [cards, setCards] = useState<any[] | null>(null), [open, setOpen] = useState(""), [sub, setSub] = useState("info"), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const [cards, setCards] = useState<any[] | null>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const [name, setName] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false);
+  const segs = useNavSegs(), open = segs[0] === "classes" ? segs[1] || "" : "", sub = TABS.some(t => t[0] === segs[2]) ? segs[2] : TABS[0][0];
+  const setOpen = (id: string, replace?: boolean) => navTo(["classes", id], replace ? "replace" : "push"), setSub = (k: string) => navTo(["classes", open, k], "push");
   const auto = useRef(true);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } };
-  const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; setOpen(c[0].id); } };
+  const load = async () => { const c = (await call("GET", "/api/class-sheet")).classes; setCards(c); if (auto.current && c.length === 1) { auto.current = false; if (!open) setOpen(c[0].id, true); } };
   const refresh = () => call("GET", "/api/class-sheet").then(x => setCards(x.classes)).catch(() => {});
   useEffect(() => { void run(load); }, []);
   const isAdmin = user.role === "admin";
@@ -40,7 +43,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
   if (open) {
     const only = !!cards && cards.length === 1 && user.role !== "teacher";
     return <section className="panel">
-      {!only && <button className="secondary-action" onClick={() => { setOpen(""); setSub("info"); void run(load); }}>← کلاس‌ها</button>}
+      {!only && <button className="secondary-action" onClick={() => { goBack(["classes"]); void run(load); }}>← کلاس‌ها</button>}
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
         <h2>{card.name}</h2>
         <LevelStepChips level={card.level} step={card.step} />
@@ -66,7 +69,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     </div>}
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
-    {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => { setSub("info"); setOpen(c.id); }} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSub("info"); setOpen(c.id); } }}>
+    {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
       <b>{c.name}</b>
       <LevelStepChips level={c.level} step={c.step} />
       <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), c.teacher && isAdmin ? "استاد: " + c.teacher : ""].filter(Boolean).join(" · ")}</span>
