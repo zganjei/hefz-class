@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { teacherKey, isNoTeacher } from "../lib/teacher-name";
+import { teacherKey, isNoTeacher, displayClassName } from "../lib/teacher-name";
 import { normClassName } from "../lib/class-name";
 import { navTo } from "../lib/nav";
-import { personMatches } from "../lib/registry-search";
+import { rankPeople } from "../lib/registry-search";
 
 type Kind = "student" | "teacher" | "supporter";
 type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null; sources?: string[]; learners?: number; has_account?: boolean; derived?: boolean; readonly?: boolean };
@@ -131,7 +131,12 @@ export function Registry() {
   useEffect(() => { void load(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message || "خطا"); } finally { setBusy(false); } };
   const kind = (tab === "student" || tab === "teacher" || tab === "supporter") ? tab : null;
-  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) && personMatches(p, q)), [all, kind, cls, q]);
+  const list = useMemo(() => all.filter(p => p.kind === kind && (!cls || (p.class_name || "").split("،").map(x => x.trim()).includes(cls)) ), [all, kind, cls]);
+  const ranked = useMemo(() => rankPeople(list, q), [list, q]);
+  const [showAllOther, setShowAllOther] = useState(false); const [otherOpen, setOtherOpen] = useState(false);
+  useEffect(() => { setShowAllOther(false); setOtherOpen(false); }, [q, kind, cls]);
+  const shown = ranked.main, otherRows = ranked.other, hasQ = !!q.trim();
+  const otherVisible = hasQ && otherRows.length > 0 && (shown.length === 0 || otherOpen);
   const classes = useMemo(() => Array.from(new Set(all.filter(p => p.kind === kind).flatMap(p => (p.class_name || "").split("،").map(x => x.trim())).filter(Boolean))), [all, kind]);
   const students = all.filter(p => p.kind === "student"), active = students.filter(p => p.status !== "inactive");
 
@@ -141,6 +146,8 @@ export function Registry() {
     catch { setMsg("خواندن فایل ممکن نشد."); }
   };
 
+  const renderRow = (p: Person, kind: Kind, reasons?: string[]) => <tr key={p.id || p.full_name} onClick={() => p.readonly ? setMsg(p.derived ? "این نام از فهرست قرآن‌آموزان آمده است؛ برای ثبت اطلاعات «افزودن» بزنید." : "این استاد از «حساب‌ها» آمده است؛ برای ویرایش به تب «حساب‌ها» بروید.") : setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} className={c === "class_name" ? "reg-cls" : undefined} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{reasons && reasons.map(r => <small key={r} className="reg-why">{r}</small>)}{kind === "teacher" && <><small className={"memb-badge " + (p.has_account ? "in_class" : "")}>{accLabel(p)}</small><small className="memb-badge">{srcLabel(p)}{p.learners ? ` · ${p.learners} قرآن‌آموز` : ""}</small></>}{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : c === "class_name" ? (p.class_name ? p.class_name.split("،").map(x => x.trim()).filter(Boolean).map((n, j) => { const id = classIdByName.get(normClassName(n)); return <span key={j}>{j > 0 && "، "}{id ? <a href={"#classes/" + id + "/info"} className="reg-link" onClick={e => { e.preventDefault(); e.stopPropagation(); navTo(["classes", id, "info"], "push"); }}>{displayClassName(n)}</a> : displayClassName(n)}</span>; }) : "—") : (p as any)[c] || "—"}</td>)}</tr>;
+
   return <section className="panel registry">
     <h2>دفتر آموزش</h2>
     <div className="m-seg steps">{([["student", "قرآن‌آموزان"], ["teacher", "اساتید"], ["supporter", "پشتیبان‌ها"], ["stats", "آمار"], ["import", "اکسل"]] as const).map(([k, l]) => <button key={k} type="button" className={tab === k ? "on" : ""} onClick={() => { setTab(k); setEdit(null); setMsg(""); }}>{l}</button>)}</div>
@@ -149,12 +156,17 @@ export function Registry() {
     {kind && !edit && <>
       <div className="reg-tools">
         <input placeholder="جستجو…" value={q} onChange={e => setQ(e.target.value)} />
-        {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{classes.map(c => <option key={c}>{c}</option>)}</select>}
+        {classes.length > 1 && <select value={cls} onChange={e => setCls(e.target.value)}><option value="">همه‌ی کلاس‌ها</option>{classes.map(c => <option key={c} value={c}>{displayClassName(c)}</option>)}</select>}
       </div>
-      <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind], kind === "teacher"))}>خروجی اکسل</button></div>
-      {!list.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
-      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => p.readonly ? setMsg(p.derived ? "این نام از فهرست قرآن‌آموزان آمده است؛ برای ثبت اطلاعات «افزودن» بزنید." : "این استاد از «حساب‌ها» آمده است؛ برای ویرایش به تب «حساب‌ها» بروید.") : setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} className={c === "class_name" ? "reg-cls" : undefined} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "teacher" && <><small className={"memb-badge " + (p.has_account ? "in_class" : "")}>{accLabel(p)}</small><small className="memb-badge">{srcLabel(p)}{p.learners ? ` · ${p.learners} قرآن‌آموز` : ""}</small></>}{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : c === "class_name" ? (p.class_name ? p.class_name.split("،").map(x => x.trim()).filter(Boolean).map((n, j) => { const id = classIdByName.get(normClassName(n)); return <span key={j}>{j > 0 && "، "}{id ? <a href={"#classes/" + id + "/info"} className="reg-link" onClick={e => { e.preventDefault(); e.stopPropagation(); navTo(["classes", id, "info"], "push"); }}>{n}</a> : n}</span>; }) : "—") : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
-      <small className="reg-count">{list.length} مورد</small>
+      <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!shown.length} onClick={() => download(`${kind}.csv`, toCsv(shown, FORM_FIELDS[kind], kind === "teacher"))}>خروجی اکسل</button></div>
+      {!shown.length && !otherRows.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
+      {shown.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{shown.map(p => renderRow(p, kind))}</tbody></table></div>}
+      {hasQ && otherRows.length > 0 && <div className="reg-other">
+        <button type="button" className="reg-other-hd" aria-expanded={otherVisible} onClick={() => setOtherOpen(o => !o)}><span>مطابقت از طریق استاد یا کلاس</span><small>{otherRows.length} مورد {shown.length > 0 ? (otherVisible ? "▴" : "▾") : ""}</small></button>
+        {otherVisible && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{(showAllOther ? otherRows : otherRows.slice(0, 5)).map(o => renderRow(o.p, kind, o.reasons))}</tbody></table></div>}
+        {otherVisible && !showAllOther && otherRows.length > 5 && <button type="button" className="reg-other-more" onClick={() => setShowAllOther(true)}>نمایش همه ({otherRows.length})</button>}
+      </div>}
+      <small className="reg-count">{shown.length}{otherRows.length && hasQ ? ` + ${otherRows.length}` : ""} مورد</small>
       {kind === "teacher" && noTeacher > 0 && <small className="reg-count" style={{ opacity: .6 }}>بدون استاد: {noTeacher} قرآن‌آموز</small>}
     </>}
 

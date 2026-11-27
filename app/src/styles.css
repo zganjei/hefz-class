@@ -407,3 +407,15 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 .adm-sub{padding-inline-start:12px}
 .reg-table td.reg-cls{min-width:150px;white-space:normal;font-size:12px;line-height:1.7}
 .reg-link{color:var(--tx-24543e);text-decoration:underline;text-underline-offset:3px;font-weight:600}
+
+.reg-other{margin-top:14px;padding-top:6px;border-top:1px dashed var(--bd-eae6db);opacity:.92}
+.reg-other-hd,.adm-via-hd{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;background:transparent!important;border:0;color:var(--tx-7a8a80)!important;font-size:13px!important;min-height:40px!important;padding:0 2px!important;text-align:right}
+.m-app .reg-other-more{min-height:40px;font-size:14px;background:transparent;color:var(--tx-174b3b);border:1px solid var(--bd-eae6db);margin-top:8px}
+.reg-why,.adm-why{display:inline-block;margin:2px 6px 0 0;padding:1px 8px;border-radius:999px;background:var(--bg-fffdf8);border:1px solid var(--bd-eae6db);color:var(--tx-7a8a80);font-size:11.5px;line-height:1.7}
+.adm-via{border-top:1px dashed var(--bd-eae6db)}
+/* header: never clip the action buttons at 360px */
+.m-top{flex-wrap:wrap;row-gap:6px}
+.m-brand{flex-wrap:wrap;row-gap:6px;flex:1 1 auto}
+.m-top .m-logout{white-space:nowrap;padding:0 10px;min-width:40px;flex:none}
+.m-top-actions{flex:none}
+@media (max-width:420px){.m-top .m-logout.srch .lbl{display:none}.m-top .m-logout.srch{padding:0 11px;font-size:16px}}

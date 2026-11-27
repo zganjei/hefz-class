@@ -12,3 +12,5 @@ export const isNoTeacher = (raw: unknown) => { const k = teacherKey(raw); return
 export const searchNorm = (raw: unknown) => teacherKey(raw).toLowerCase();
 /** Query tokens for a search box; every token must be found in the same field. */
 export const searchTokens = (q: string) => searchNorm(q).split(" ").filter(Boolean);
+/** Display only: drop a leading word «کلاس » (normal/ZWNJ space, Arabic ك) so lists read «شهید آرمان علی وردی». Stored names, matching and links keep the real name. «گروه …» and inner «کلاس» are untouched. */
+export const displayClassName = (raw: unknown): string => { const s = String(raw ?? ""); const r = s.replace(/^\s*[کك]لاس[\s‌]+(?=\S)/, ""); return r || s; };
