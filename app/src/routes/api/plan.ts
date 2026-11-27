@@ -161,7 +161,10 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
   if (!week || !isOpen(week, today)) return jsonError("این هفته هنوز باز نشده است.", 403);
   if (week.start_date) { const d = new Date(week.start_date + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + dayIndex); if (d.toISOString().slice(0, 10) > today) return jsonError("روز آینده را نمی‌توان تیک زد.", 403); }
   if (done) await DB.prepare("INSERT INTO hefz_plan_progress(user_id,week_number,day_index) VALUES(?,?,?) ON CONFLICT DO NOTHING").bind(user.id, weekNumber, dayIndex).run();
-  else await DB.prepare("DELETE FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, weekNumber, dayIndex).run();
+  else {   // un-ticking the weekly day also clears the day's «حفظ» item, otherwise the daily checklist would still show it done
+   await DB.prepare("DELETE FROM hefz_plan_progress WHERE user_id=? AND week_number=? AND day_index=?").bind(user.id, weekNumber, dayIndex).run();
+   await DB.prepare("DELETE FROM hefz_daily_ticks WHERE user_id=? AND track=? AND week_number=? AND day_index=? AND item='memorize'").bind(user.id, TRACK, weekNumber, dayIndex).run();
+  }
   return Response.json({ ok: true, weekNumber, dayIndex, done });
  }
 }}});

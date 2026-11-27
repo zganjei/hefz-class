@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { displayClassName, displayClassNames } from "../lib/teacher-name";
+import { Notice } from "./notice";
 
 type User = { id: string; role: "admin" | "teacher" | "memorizer"; roles?: string[]; display_name: string };
 type Day = { index: number; name: string; jdate: string; kind: "new" | "class" | "rest"; new: string | null; review: string[]; basket: string[]; done: boolean; future: boolean };
@@ -18,6 +19,8 @@ type TodayItem = { key: string; label: string; ranges: string[]; done: boolean; 
 type AudioInfo = { reciter: string; source: string; verses: { n: number; url: string }[] };
 type TranslationInfo = { translator: string; source: string; sourceUrl: string; link: string | null; verses: { n: number; text: string }[] };
 type Today = { program?: { id: string; name: string } | null; week: { week_number: number; title: string } | null; day: { index: number; name: string; date: string; jdate: string; kind: string; isToday: boolean; future: boolean; prev: string | null; next: string | null } | null; items: TodayItem[] };
+/** Program cells that are not a verse range (exam, review-only week, ...): shown as plain text, never as a tappable verse link. */
+export const isNoteText = (r: string) => !/سوره/.test(r);
 type VerseBlock = { range: string; surah: string; verses: { n: number; text: string }[] };
 
 function VerseAudio({ info }: { info: AudioInfo }) {
@@ -43,16 +46,16 @@ function VerseAudio({ info }: { info: AudioInfo }) {
   </div>;
 }
 
-function TodayChecklist() {
+function TodayChecklist({ rev, onChanged }: { rev: number; onChanged: () => void }) {
   const [data, setData] = useState<Today | null>(null), [msg, setMsg] = useState(""), [open, setOpen] = useState<string | null>(null), [cache, setCache] = useState<Record<string, VerseBlock | null>>({});
   const [date, setDate] = useState<string | null>(null);   // null = today
   const load = useCallback(async () => { try { setData(await call("/api/plan?today=1" + (date ? `&date=${date}` : ""))); setMsg(""); } catch (e: any) { setMsg(e.message); } }, [date]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, rev]);
   const tick = async (it: TodayItem) => {
     if (!data?.week || !data.day || data.day.future) return;
     const next = !it.done;
     setData(d => d && { ...d, items: d.items.map(x => x.key === it.key ? { ...x, done: next } : x) });
-    try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next, programId: data.program?.id ?? null }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
+    try { await call("/api/plan", { weekNumber: data.week.week_number, dayIndex: data.day.index, item: it.key, done: next, programId: data.program?.id ?? null }, "POST"); setMsg(""); onChanged(); } catch (e: any) { setMsg("تیک ذخیره نشد: " + (e.message || "خطا")); void load(); }
   };
   const show = async (k: string) => {
     const range = k.slice(k.indexOf("|") + 1);
@@ -60,7 +63,7 @@ function TodayChecklist() {
     if (range in cache) return;
     try { const d = await call(`/api/plan?verses=${encodeURIComponent(range)}`); setCache(c => ({ ...c, [range]: d.blocks[0] ?? null })); } catch { setCache(c => ({ ...c, [range]: null })); }
   };
-  if (!data) return msg ? <p className="error-msg">{msg}</p> : null;
+  if (!data) return msg ? <Notice msg={msg} /> : null;
   if (!data.day || !data.week) return null;
   const day = data.day;
   const doneN = data.items.filter(i => i.done).length;
@@ -72,16 +75,16 @@ function TodayChecklist() {
       <button type="button" className="plan-more" disabled={!day.next} onClick={() => day.next && setDate(day.next)}>روز بعد ←</button>
     </div>
     {day.future && <p className="plan-hint">این روز هنوز نرسیده است؛ فقط می‌توانید برنامه را ببینید و تیک زدن بعداً ممکن می‌شود.</p>}
-    {msg && <p className="error-msg">{msg}</p>}
+    <Notice msg={msg} />
     <div className="m-days">
       {data.items.map(it => <div key={it.key} className={"m-day" + (it.done ? " done" : "")}>
         <label className="m-check"><input type="checkbox" checked={it.done} disabled={day.future} onChange={() => void tick(it)} aria-label={it.label} /><span /></label>
         <div className="m-day-body">
           <div className="m-day-top"><b>{it.label}</b></div>
           {it.ranges.length ? it.ranges.map((r, ri) => <div key={r + ri}>
-            <button type="button" className="range-link" onClick={() => void show(it.key + "|" + r)}>{r}</button>
+            {isNoteText(r) ? <span className="m-new">{fa(r)}</span> : <button type="button" className="range-link" onClick={() => void show(it.key + "|" + r)}>{fa(r)}</button>}
             {it.links?.[ri] && <> <a className="range-link" href={it.links[ri]!} target="_blank" rel="noopener noreferrer">متن در quran.com ↗</a></>}
-          </div>) : <div className="m-new">{["memorize", "listen", "translate", "tadabbur"].includes(it.key) ? (day.kind === "rest" ? "امروز روز استراحت است" : "امروز آیه‌ی جدید ندارد") : "—"}</div>}
+          </div>) : <div className="m-new">{["memorize", "listen", "translate", "tadabbur"].includes(it.key) ? (day.kind === "rest" ? "امروز روز استراحت است" : day.kind === "class" ? "امروز روز کلاس است" : "امروز آیه‌ی جدید ندارد") : "—"}</div>}
         </div>
         <div className="m-day-wide">{it.ranges.map((r, ri) => <div key={r + ri}>
             {it.tadabbur?.[ri] && <div className="tadabbur-notes">
@@ -105,22 +108,22 @@ function TodayChecklist() {
 }
 
 export function LearnerPlan() {
-  const [showAll, setShowAll] = useState(false), [program, setProgram] = useState<{ id: string; name: string } | null>(null), [startsOn, setStartsOn] = useState<string | null>(null), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
+  const [rev, setRev] = useState(0), [showAll, setShowAll] = useState(false), [program, setProgram] = useState<{ id: string; name: string } | null>(null), [startsOn, setStartsOn] = useState<string | null>(null), [weeks, setWeeks] = useState<Week[]>([]), [openWeek, setOpenWeek] = useState<number | null>(null), [msg, setMsg] = useState(""), [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
     try { const d = await call("/api/plan"); setProgram(d.program ?? null); setStartsOn(d.startsOn ?? null); setWeeks(d.weeks); setOpenWeek(o => o ?? d.currentWeek ?? null); setMsg(""); } catch (e: any) { setMsg(e.message); } finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, rev]);
   const tick = async (w: Week, d: Day) => {
     setWeeks(ws => ws.map(x => x.week_number !== w.week_number ? x : { ...x, days: x.days.map(y => y.index === d.index ? { ...y, done: !y.done } : y), doneNew: x.doneNew + (d.new ? (d.done ? -1 : 1) : 0) }));
-    try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done, programId: program?.id ?? null }, "POST"); } catch (e: any) { setMsg(e.message); void load(); }
+    try { await call("/api/plan", { weekNumber: w.week_number, dayIndex: d.index, done: !d.done, programId: program?.id ?? null }, "POST"); setMsg(""); setRev(n => n + 1); } catch (e: any) { setMsg("تیک ذخیره نشد: " + (e.message || "خطا")); void load(); }
   };
   const curN = weeks.find(x => x.current)?.week_number ?? -1;
   const visible = weeks.filter(w => w.open && (showAll || w.week_number >= curN - 3 || curN < 0));
   const hidden = weeks.filter(w => w.open && w.week_number < curN - 3).length;
   if (loading) return <p className="empty-state">در حال بارگذاری…</p>;
   return <section className="plan-wrap">
-    <TodayChecklist />
-    {msg && <p className="error-msg">{msg}</p>}
+    <TodayChecklist rev={rev} onChanged={() => setRev(n => n + 1)} />
+    <Notice msg={msg} />
     {program && <p className="plan-hint">برنامهٔ کلاس شما: <b>{program.name}</b></p>}
     {startsOn && <p className="empty-state">برنامهٔ کلاس شما از {startsOn} شروع می‌شود.</p>}
     {!weeks.length && <p className="empty-state">برنامه‌ای ثبت نشده است.</p>}
@@ -132,17 +135,17 @@ export function LearnerPlan() {
           {w.open ? <div className="plan-prog"><span>{fa(w.doneNew)} از {fa(w.total)}</span><i><u style={{ width: pct + "%" }} /></i></div> : <span className="plan-lock">🔒 به‌زودی باز می‌شود</span>}
         </button>
         {isOpen && <div className="m-days">
-          {w.days.map(d => <div key={d.index} className={"m-day" + (d.done ? " done" : "") + (d.kind !== "new" ? " calm" : "")}>
-            <label className="m-check"><input type="checkbox" checked={d.done} disabled={d.future} onChange={() => void tick(w, d)} /><span /></label>
+          {w.days.map(d => { const special = d.kind === "class" && d.review.length && isNoteText(d.review[0]) ? d.review[0] : "", review = special ? d.review.slice(1) : d.review; return <div key={d.index} className={"m-day" + (d.done ? " done" : "") + (d.kind !== "new" ? " calm" : "")}>
+            <label className="m-check"><input type="checkbox" checked={d.done} disabled={d.future} aria-label={`${d.name} ${d.jdate}`} onChange={() => void tick(w, d)} /><span /></label>
             <div className="m-day-body">
               <div className="m-day-top"><b>{d.name}</b><small>{d.jdate}</small></div>
-              <div className="m-new">{d.new || (d.kind === "class" ? "کلاس" : "مرور و استراحت")}</div>
-              {(d.review.length > 0 || d.basket.length > 0) && <details className="m-more"><summary>مرور امروز</summary>
-                {d.review.length > 0 && <p><i>ده درس اخیر:</i> {d.review.join("، ")}</p>}
-                {d.basket.length > 0 && <p><i>سبد کل:</i> {d.basket.join("، ")}</p>}
+              <div className="m-new">{d.new ? fa(d.new) : d.kind === "class" ? (special ? "کلاس · " + fa(special) : "کلاس") : "مرور و استراحت"}</div>
+              {(review.length > 0 || d.basket.length > 0) && <details className="m-more"><summary>مرور امروز</summary>
+                {review.length > 0 && <p><i>ده درس اخیر:</i> {review.map(fa).join("، ")}</p>}
+                {d.basket.length > 0 && <p><i>سبد کل:</i> {d.basket.map(fa).join("، ")}</p>}
               </details>}
             </div>
-          </div>)}
+          </div>; })}
         </div>}
       </article>;
     })}
