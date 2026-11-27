@@ -461,3 +461,4 @@ video.vid-frame{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px}
 .vid-att span{flex:1;min-width:140px;overflow-wrap:anywhere;font-size:14px}
 .vid-checks{display:grid;gap:4px;max-height:220px;overflow:auto}
 .vid-checks label{display:flex;align-items:center;gap:8px;min-height:36px;font-size:14px}
+.m-brand button.brand-mark{cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent}
