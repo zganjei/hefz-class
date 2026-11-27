@@ -323,3 +323,5 @@ button.auth-mark{border:0;padding:0;cursor:pointer}
 
 .choice{display:flex;align-items:center;gap:.5rem;flex-direction:row}
 .choice input{width:auto}
+
+.memb-badge{display:block;font-size:11px;font-weight:600;margin-top:2px;color:var(--tx-7a8a80)}.memb-badge.in_class{color:var(--progress-fill)}.memb-badge.no_class{color:#b0402a}[data-theme=dark] .memb-badge.no_class{color:#e58a77}

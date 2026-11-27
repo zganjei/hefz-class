@@ -5,6 +5,7 @@ type Kind = "student" | "teacher" | "supporter";
 type Person = { id?: string; kind?: Kind; full_name: string; code?: string; class_name?: string; teacher_name?: string; class_day?: string; class_time?: string; level?: string; education?: string; hifz_amount?: string; tadabbur_amount?: string; phone?: string; bale_number?: string; bale_id?: string; email?: string; resume?: string; notes?: string; status?: string; extra?: string | null };
 
 const KIND_FA: Record<Kind, string> = { student: "قرآن‌آموزان", teacher: "اساتید", supporter: "پشتیبان‌ها" };
+const MEMB_LABEL: Record<string, string> = { in_class: "در کلاس ✓", to_add: "آماده‌ی ثبت در کلاس", no_account: "هنوز وارد نشده", no_class: "کلاس نامشخص" };
 const LABELS: Record<string, string> = { full_name: "نام و نام خانوادگی", code: "کد", class_name: "کلاس", teacher_name: "استاد", class_day: "روز کلاس", class_time: "ساعت کلاس", level: "سطح / محدوده", education: "تحصیلات", hifz_amount: "میزان حفظ", tadabbur_amount: "میزان تدبر", phone: "شماره تماس", bale_number: "شماره بله", bale_id: "آیدی بله", email: "ایمیل", resume: "رزومه", notes: "یادداشت", status: "وضعیت" };
 const FORM_FIELDS: Record<Kind, string[]> = {
   student: ["full_name", "code", "class_name", "teacher_name", "class_day", "class_time", "level", "education", "hifz_amount", "tadabbur_amount", "phone", "bale_number", "bale_id", "email", "notes"],
@@ -113,7 +114,9 @@ export function Registry() {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [imp, setImp] = useState<{ rows: Person[]; sheets: string[]; file: string } | null>(null);
   const [impKind, setImpKind] = useState<Kind>("student");
-  const load = () => api().then(d => setAll(d.people || [])).catch(e => setMsg(e.message));
+  const [memb, setMemb] = useState<Record<string, string>>({});
+  const loadMemb = () => fetch("/api/registry-members").then(r => r.ok ? r.json() : null).then(d => { if (d?.status) setMemb(d.status); }).catch(() => {});
+  const load = () => { void loadMemb(); return api().then(d => setAll(d.people || [])).catch(e => setMsg(e.message)); };
   useEffect(() => { void load(); }, []);
   const run = async (fn: () => Promise<void>) => { setBusy(true); setMsg(""); try { await fn(); } catch (e: any) { setMsg(e.message || "خطا"); } finally { setBusy(false); } };
   const kind = (tab === "student" || tab === "teacher" || tab === "supporter") ? tab : null;
@@ -139,7 +142,7 @@ export function Registry() {
       </div>
       <div className="reg-tools"><button type="button" onClick={() => setEdit({ full_name: "", kind })}>+ افزودن</button><button type="button" className="ghost-wide" disabled={!list.length} onClick={() => download(`${kind}.csv`, toCsv(list, FORM_FIELDS[kind]))}>خروجی اکسل</button></div>
       {!list.length && <p className="empty-state">موردی ثبت نشده است. از «اکسل» وارد کنید یا «افزودن» بزنید.</p>}
-      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
+      {list.length > 0 && <div className="reg-table-wrap"><table className="reg-table"><thead><tr>{TABLE_COLS[kind].map(c => <th key={c}>{LABELS[c]}</th>)}</tr></thead><tbody>{list.map(p => <tr key={p.id} onClick={() => setEdit(p)}>{TABLE_COLS[kind].map((c, i) => <td key={c} dir={c === "phone" || c === "code" ? "ltr" : undefined}>{i === 0 ? <><b>{p.full_name}{p.status === "inactive" ? " (غیرفعال)" : ""}</b>{kind === "student" && p.id && MEMB_LABEL[memb[p.id]] && <small className={"memb-badge " + memb[p.id]}>{MEMB_LABEL[memb[p.id]]}</small>}</> : (p as any)[c] || "—"}</td>)}</tr>)}</tbody></table></div>}
       <small className="reg-count">{list.length} مورد</small>
     </>}
 
