@@ -13,8 +13,8 @@ export function resolveView(user: Parameters<typeof viewRolesOf>[0], stored: str
 }
 /** Bottom-nav tabs of a view («profile» is reached from the header, never from the bar). */
 export function tabsForView(view: AppRole | null): string[] {
-  if (view === "admin") return ["classes", "registry", "applications"];
-  if (view === "teacher") return ["classes"];
+  if (view === "admin") return ["classes", "chat", "registry", "applications"];
+  if (view === "teacher") return ["classes", "chat"];
   if (view === "memorizer") return ["plan", "exams", "chat"];
   return [];
 }
