@@ -4,6 +4,7 @@ import { Notice } from "./notice";
 import { LevelStepEditor, LevelStepChips, LevelStepFilter, matchesLS } from "./level-step";
 import { Exams } from "./exams";
 import { ClassReports } from "./class-reports";
+import { ClassChat } from "./class-chat";
 import { searchNorm, displayTeacherName, displayClassName, displayClassNames } from "../lib/teacher-name";
 
 import { hasRole } from "../lib/roles";
@@ -82,7 +83,7 @@ function AddLearner({ classId, busy, run, reload, say }: { classId: string; busy
 }
 
 type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
-const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"]];
+const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"], ["chat", "گفتگو"]];
 
 /** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs اطلاعات کلاس / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
 export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
@@ -115,6 +116,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
       {sub === "people" && <ClassSheet mode="people" classes={classes} id={open} user={user} focusName={segs[2] === "people" ? segs[3] || "" : ""} onLoaded={() => void refresh()} onAttach={() => setSub("info")} />}
       {sub === "exams" && <Exams user={user} classes={classes} classId={open} embedded />}
       {sub === "report" && <ClassReports classId={open} embedded />}
+      {sub === "chat" && <ClassChat classId={open} />}
       <Notice msg={msg} />
     </section>;
   }

@@ -15,7 +15,7 @@ export function resolveView(user: Parameters<typeof viewRolesOf>[0], stored: str
 export function tabsForView(view: AppRole | null): string[] {
   if (view === "admin") return ["classes", "registry", "applications"];
   if (view === "teacher") return ["classes"];
-  if (view === "memorizer") return ["plan", "exams"];
+  if (view === "memorizer") return ["plan", "exams", "chat"];
   return [];
 }
 export const viewKey = (userId: string) => "hefz-view:" + userId;
