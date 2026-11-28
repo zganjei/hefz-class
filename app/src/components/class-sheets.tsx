@@ -25,6 +25,11 @@ const weekLine = (c: any) => c.hasProgram
   ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) + " · " + c.currentWeek.title : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") + " · برنامه: " + c.program
   : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده");
 
+const KIND_LABEL: Record<string, string> = { online: "آنلاین", onsite: "حضوری" };
+const KIND_GROUPS: [string, string][] = [["online", "آنلاین"], ["onsite", "حضوری"], ["", "تعیین‌نشده"]];
+const KindTag = ({ kind }: { kind?: string }) => kind && KIND_LABEL[kind] ? <small className="adm-badge" style={{ marginInlineStart: 8 }}>{KIND_LABEL[kind]}</small> : null;
+const KindSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => <label>نوع کلاس (اختیاری)<select value={value} onChange={e => onChange(e.target.value)}><option value="">تعیین‌نشده</option><option value="online">آنلاین</option><option value="onsite">حضوری</option></select></label>;
+
 const DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"];
 const dayTimeText = (c: { classDay?: string; classTime?: string }) => [c.classDay, c.classTime].filter(Boolean).join(" · ");
 const splitTime = (t: string) => { const m = /^(.*?)\s*تا\s*(.*)$/.exec(t || ""); return m ? [m[1], m[2]] : [t || "", ""]; };
@@ -50,13 +55,39 @@ function DayTimeEditor({ day, time, hint, busy, onSave }: { day: string; time: s
   </div>;
 }
 
+function KindEditor({ kind, busy, onSave }: { kind: string; busy: boolean; onSave: (k: string) => void }) {
+  const [k, setK] = useState(kind);
+  useEffect(() => setK(kind), [kind]);
+  return <div className="report-form">
+    <h3>نوع کلاس</h3>
+    <KindSelect value={k} onChange={setK} />
+    <button className="secondary-action" disabled={busy || k === kind} onClick={() => onSave(k)}>ذخیره‌ی نوع کلاس</button>
+  </div>;
+}
+
+/** «افزودن قرآن‌آموز»: search learner accounts by name / phone / email and add one to THIS class. Same effect as the registry enrolment, for one person. */
+function AddLearner({ classId, busy, run, reload, say }: { classId: string; busy: boolean; run: (fn: () => Promise<void>) => Promise<void>; reload: () => Promise<void>; say: (m: string) => void }) {
+  const [open, setOpen] = useState(false), [q, setQ] = useState(""), [res, setRes] = useState<{ id: string; name: string; phone: string; email: string }[] | null>(null);
+  if (!open) return <button className="secondary-action" onClick={() => setOpen(true)}>افزودن قرآن‌آموز</button>;
+  return <div className="report-form">
+    <h3>افزودن قرآن‌آموز به این کلاس</h3>
+    <p className="plan-hint">نام، شماره‌ی تلفن یا ایمیل قرآن‌آموزی را که در سامانه حساب دارد جست‌وجو کنید. کسی که هنوز وارد سامانه نشده است، هنگام اولین ورود طبق دفتر به کلاسش اضافه می‌شود.</p>
+    <label>جست‌وجو<input value={q} onChange={e => { setQ(e.target.value); setRes(null); }} placeholder="دست‌کم دو نویسه" /></label>
+    <button className="secondary-action" disabled={busy || q.trim().length < 2} onClick={() => void run(async () => setRes((await call("POST", "/api/class-sheet", { action: "find-learners", classId, q })).learners))}>جست‌وجو</button>
+    {res && !res.length && <p className="empty-state">قرآن‌آموزی با این مشخصات پیدا نشد (یا از قبل در این کلاس است).</p>}
+    {res?.map(u => <div className="simple-row" key={u.id}><b>{u.name}</b><span>{[u.phone, u.email].filter(Boolean).join(" · ")}</span>
+      <button className="primary-wide" disabled={busy} onClick={() => void run(async () => { const d = await call("POST", "/api/class-sheet", { action: "add-member", classId, userId: u.id }); setRes(r => (r || []).filter(x => x.id !== u.id)); await reload(); say(`«${d.added}» به کلاس «${displayClassName(d.className)}» اضافه شد ✅`); })}>افزودن به کلاس</button></div>)}
+    <button className="secondary-action" onClick={() => { setOpen(false); setQ(""); setRes(null); }}>بستن</button>
+  </div>;
+}
+
 type Cls = { id: string; name: string; level_name?: string | null; step_name?: string | null };
 const TABS: [string, string][] = [["info", "اطلاعات کلاس"], ["people", "قرآن‌آموزان"], ["exams", "آزمون و نمرات"], ["report", "گزارش"]];
 
 /** کلاس‌ها: the one area for everything about a class. List of class cards (teacher: own, admin: all; one class opens directly); inside a class the sub-tabs اطلاعات کلاس / قرآن‌آموزان / آزمون و نمرات / گزارش. Admin also keeps «برنامه‌ی من». */
 export function ClassSheets({ user, classes, onChanged }: { user: User; classes: Cls[]; onChanged?: () => void }) {
   const [cards, setCards] = useState<any[] | null>(null), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
-  const [name, setName] = useState(""), [pos, setPos] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false);
+  const [name, setName] = useState(""), [pos, setPos] = useState(""), [kind, setKind] = useState(""), [lv, setLv] = useState(""), [st, setSt] = useState(""), [mine, setMine] = useState(false);
   const segs = useNavSegs(), open = segs[0] === "classes" ? segs[1] || "" : "", sub = TABS.some(t => t[0] === segs[2]) ? segs[2] : TABS[0][0];
   const setOpen = (id: string, replace?: boolean) => navTo(["classes", id], replace ? "replace" : "push"), setSub = (k: string) => navTo(["classes", open, k], "push");
   const auto = useRef(true);
@@ -75,7 +106,7 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
     return <section className="panel">
       {!only && <button className="secondary-action" onClick={() => { goBack(["classes"]); void run(load); }}>← کلاس‌ها</button>}
       {card && <header className="adm-block" style={{ marginTop: 12 }}>
-        <h2>{labels.get(card.id) ?? displayClassName(card.name)}</h2>
+        <h2>{labels.get(card.id) ?? displayClassName(card.name)}<KindTag kind={card.classKind} /></h2>
         <LevelStepChips level={card.level} step={card.step} />
         <p className="plan-hint">{[dayTimeText(card), card.teacher && isAdmin ? "استاد: " + displayTeacherName(card.teacher) : "", fa(card.activeCount) + " قرآن‌آموز فعال", weekLine(card)].filter(Boolean).join(" · ")}</p>
       </header>}
@@ -95,15 +126,17 @@ export function ClassSheets({ user, classes, onChanged }: { user: User; classes:
       <h3>کلاس جدید</h3>
       <label>نام کلاس<input value={name} onChange={e => setName(e.target.value)} placeholder="مثلاً ورودی ۱۴۰۵ گام اول" /></label>
       <label>جایگاه (دستی، اختیاری)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
-      <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, positionNote: pos }); setName(""); setPos(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
+      <KindSelect value={kind} onChange={setKind} />
+      <button className="primary-wide" disabled={busy || !name.trim()} onClick={() => void run(async () => { await call("POST", "/api/classes", { name, positionNote: pos, classKind: kind }); setName(""); setPos(""); setKind(""); await load(); onChanged?.(); setMsg("کلاس ساخته شد ✅"); })}>ایجاد کلاس</button>
     </div>}
     {!cards && !msg && <p className="empty-state">در حال بارگذاری…</p>}
     {cards && <LevelStepFilter classes={cards} level={lv} step={st} setLevel={setLv} setStep={setSt} />}
-    {shown.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
-      <b>{labels.get(c.id) ?? displayClassName(c.name)}</b>
+    {KIND_GROUPS.map(([k, title]) => { const g = shown.filter(c => (c.classKind || "") === k); return g.length ? <div key={k || "none"}><h3 className="sheet-h">{title}</h3>
+    {g.map(c => <div role="button" tabIndex={0} className="sheet-card cls" key={c.id} onClick={() => setOpen(c.id)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(c.id); } }}>
+      <b>{labels.get(c.id) ?? displayClassName(c.name)}<KindTag kind={c.classKind} /></b>
       <LevelStepChips level={c.level} step={c.step} />
       <span className="cls-info">{[fa(c.activeCount) + " قرآن‌آموز فعال", c.hasProgram ? "جایگاه: " + (c.currentWeek ? "هفتهٔ " + fa(c.currentWeek.week_number) : c.status === "ended" ? "برنامه تمام شده" : "هنوز شروع نشده") : "جایگاه (دستی): " + (c.positionNote || "ثبت نشده"), dayTimeText(c), c.teacher && isAdmin ? "استاد: " + displayTeacherName(c.teacher) : ""].filter(Boolean).join(" · ")}</span>
-    </div>)}
+    </div>)}</div> : null; })}
     {cards && !cards.length && <p className="empty-state">هنوز کلاسی ایجاد یا به شما اختصاص داده نشده است.</p>}
     {cards && !!cards.length && !shown.length && <p className="empty-state">کلاسی با این سطح و گام نیست.</p>}
     <Notice msg={msg} />
@@ -172,6 +205,7 @@ function ClassSheet({ id, user, mode, classes, focusName, onLoaded, onAttach }: 
       {!d.hasProgram && <><label>جایگاه (دستی)<input value={pos} onChange={e => setPos(e.target.value)} placeholder="مثلاً آل‌عمران، هفت صفحه‌ی اول تمام شده" /></label>
         <button className="secondary-action" disabled={busy || pos === d.positionNote} onClick={() => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, positionNote: pos }); await load(); setMsg("ذخیره شد ✅"); })}>ذخیره‌ی جایگاه</button><p className="plan-hint">برای نمایش هفته، یک برنامه به کلاس وصل کنید.</p></>}
     </div>
+    <KindEditor kind={d.classKind || ""} busy={busy} onSave={k => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, classKind: k }); await load(); setMsg("نوع کلاس ذخیره شد ✅"); })} />
     <DayTimeEditor day={d.classDay} time={d.classTime} hint={d.dayTimeHint} busy={busy} onSave={(classDay, classTime) => void run(async () => { await call("POST", "/api/class-sheet", { action: "update-class", classId: id, classDay, classTime }); await load(); setMsg("روز و ساعت کلاس ذخیره شد ✅"); })} />
     </>}
     {mode === "people" && <details className="adm-block"><summary><b>پیشرفت هفتگی</b></summary>
@@ -180,6 +214,7 @@ function ClassSheet({ id, user, mode, classes, focusName, onLoaded, onAttach }: 
     </details>}
     {mode === "people" && <>
     <h3 className="sheet-h">قرآن‌آموزان فعال</h3>
+    <AddLearner classId={id} busy={busy} run={run} reload={load} say={setMsg} />
     {d.active.map((l: any) => <Learner say={setMsg} key={l.key} l={l} className={d.name} classPos={d.positionNote} classId={id} open={openKey === l.key} toggle={() => setOpenKey(openKey === l.key ? "" : l.key)} run={run} busy={busy} reload={load} />)}
     {!d.active.length && <p className="empty-state">قرآن‌آموزی در این کلاس نیست.</p>}
     {d.left.length > 0 && <>
