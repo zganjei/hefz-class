@@ -56,3 +56,10 @@ export function expandWeek(w: { start_date: string | null; days: PlanDay[] }, to
     return { index: i, name: DAY_NAMES[i], date, jdate: date ? jalaliLabel(date) : "", kind: d.kind, new: d.new, review: d.review, basket: d.basket, done: done.has(i), future: !!date && date > today };
   });
 }
+
+/** Week a class report opens on. Explicit request wins; else the class's own current week (only a class WITH a program has one: the global plan's dates say nothing about it); else the first open week. */
+export function defaultClassWeek(o: { requested: number | null; hasProgram: boolean; currentWeek: number | null; lastDatedWeek: number | null; weeks: { week_number: number; start_date: string | null }[]; today: string }): number {
+  if (o.requested) return o.requested;
+  if (o.hasProgram && (o.currentWeek || o.lastDatedWeek)) return (o.currentWeek || o.lastDatedWeek)!;
+  return o.weeks.find(w => !w.start_date || w.start_date <= o.today)?.week_number ?? o.weeks[0]?.week_number ?? 0;
+}

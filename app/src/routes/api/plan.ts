@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
-import { expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, isIsoDate, locateDay, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
+import { defaultClassWeek, expandWeek, stockholmToday, addDays, dayIndexOf, itemRanges, jalaliLabel, isIsoDate, locateDay, DAY_NAMES, DAILY_ITEMS, ITEM_LABELS, type DailyItem, type PlanDay } from "../../lib/plan.server";
 import { programForClass, programForUser, type ClassProgram } from "../../lib/program.server";
 import { resolveRange, quranComUrl, tadabburFor, audioFor, translationFor } from "../../lib/quran.server";
 import { hasRoleSql } from "../../lib/roles";
@@ -89,7 +89,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
 
   if (classId) {   // teacher / admin report for one class
    if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
-   const wanted = Number(url.searchParams.get("week") || currentWeek || lastDated?.week_number || 0);
+   const wanted = defaultClassWeek({ requested: Number(url.searchParams.get("week")) || null, hasProgram: !!prog, currentWeek, lastDatedWeek: lastDated?.week_number ?? null, weeks: all, today });
    const week = all.find(w => w.week_number === wanted && isOpen(w, today));
    if (!week) return jsonError(prog && !dated.length ? `برنامهٔ این کلاس (${prog.name}) از ${jalaliLabel(prog.startDate)} شروع می‌شود.` : "هفته پیدا نشد یا هنوز باز نشده است.", 404);
    const members = (await DB.prepare("SELECT u.id,u.display_name FROM class_members m JOIN users u ON u.id=m.user_id WHERE m.class_id=? AND (" + hasRoleSql("u", "memorizer") + " OR " + hasRoleSql("u", "admin") + ") AND u.active=1 ORDER BY u.display_name").bind(classId).all<{ id: string; display_name: string }>()).results || [];
@@ -105,7 +105,7 @@ export const Route = createFileRoute("/api/plan")({ server: { handlers: {
    const seen = await seenCounts(DB, classId, wv.map(v => v.id));
    return Response.json({
     videos: wv.map(v => ({ ...v, seen: seen.get(v.id) ?? 0, total: members.length })),
-    program: progInfo, positionNote: (await DB.prepare("SELECT position_note FROM classes WHERE id=?").bind(classId).first<any>())?.position_note || "", currentWeek, currentWeekTitle: all.find(w => w.week_number === currentWeek)?.title ?? null, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
+    program: progInfo, positionNote: (await DB.prepare("SELECT position_note FROM classes WHERE id=?").bind(classId).first<any>())?.position_note || "", currentWeek: prog ? currentWeek : null, currentWeekTitle: prog ? all.find(w => w.week_number === currentWeek)?.title ?? null : null, week: { week_number: week.week_number, title: week.title, mushaf_page: week.mushaf_page, mushaf_page2: week.mushaf_page2, start_date: week.start_date, newDays: newDays(week), days: days.map(d => ({ index: d.index, name: d.name, jdate: d.jdate, kind: d.kind, new: d.new, future: d.future })) },
     weeks: all.filter(w => isOpen(w, today)).map(w => ({ week_number: w.week_number, title: w.title })),
     members: members.map(m => ({ id: m.id, name: m.display_name, done: prog2.filter(p => p.user_id === m.id).map(p => p.day_index), lastTick: prog2.filter(p => p.user_id === m.id).map(p => p.done_at).sort().pop() || null, totalDone: Number(totals.find(t => t.user_id === m.id)?.n || 0) })),
    });

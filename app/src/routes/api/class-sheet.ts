@@ -28,19 +28,19 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
   const registry = await registryStudents(DB);
 
   if (!classId) {
-   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,c.class_day,c.class_time,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND " + hasRoleSql("ut", "teacher") + " AND ut.active=1),'') AS teacher_name FROM classes c";
+   const sel = "SELECT c.id,c.name,c.term,c.position_note,c.level_name,c.step_name,c.class_day,c.class_time,c.class_kind,COALESCE((SELECT string_agg(ut.display_name, '، ' ORDER BY ut.display_name) FROM class_teachers ct JOIN users ut ON ut.id=ct.user_id WHERE ct.class_id=c.id AND " + hasRoleSql("ut", "teacher") + " AND ut.active=1),'') AS teacher_name FROM classes c";
    const rows = (isAdmin(user) ? await DB.prepare(`${sel} ORDER BY c.created_at DESC`).all<any>() : await DB.prepare(`${sel} WHERE ${TEACHES_CLASS_SQL} ORDER BY c.created_at DESC`).bind(user.id, user.id).all<any>()).results || [];
    const cards = [];
    for (const c of rows) {
     const cp = await classPeople(DB, c.id, registry), st = await programState(DB, c.id, today);
-    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", level: c.level_name || "", step: c.step_name || "", classDay: c.class_day || "", classTime: c.class_time || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
+    cards.push({ id: c.id, name: c.name, term: c.term || "", positionNote: c.position_note || "", level: c.level_name || "", step: c.step_name || "", classKind: c.class_kind || "", classDay: c.class_day || "", classTime: c.class_time || "", teacher: c.teacher_name || "", activeCount: cp ? cp.people.filter(p => p.status === "active").length : 0, ...st });
    }
    return Response.json({ classes: cards });
   }
 
   if (!(await canManageClass(DB, user, classId))) return jsonError("دسترسی ندارید.", 403);
   const cp = await classPeople(DB, classId, registry); if (!cp) return jsonError("کلاس پیدا نشد.", 404);
-  const meta = await DB.prepare("SELECT term,position_note,level_name,step_name,class_day,class_time FROM classes WHERE id=?").bind(classId).first<any>();
+  const meta = await DB.prepare("SELECT term,position_note,level_name,step_name,class_day,class_time,class_kind FROM classes WHERE id=?").bind(classId).first<any>();
   const st = await programState(DB, classId, today), prog = await programForClass(DB, classId);
   const exams = (await DB.prepare("SELECT id,title,exam_date::text AS exam_date FROM class_exams WHERE class_id=? AND active=1 ORDER BY created_at").bind(classId).all<any>()).results || [];
   const att = (await DB.prepare("SELECT a.exam_id,a.user_id,a.score,a.max_score FROM class_exam_attempts a JOIN class_exams e ON e.id=a.exam_id WHERE e.class_id=? AND e.active=1").bind(classId).all<any>()).results || [];
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    digital: exams.filter(e => att.some(a => a.exam_id === e.id && a.user_id === p.userId)).map(e => { const a = att.find(x => x.exam_id === e.id && x.user_id === p.userId)!; return { title: e.title, date: e.exam_date, score: Number(a.score), max: Number(a.max_score) }; }),
    manual: manual.filter(m => (p.registryId && m.registry_id === p.registryId) || (p.userId && m.user_id === p.userId)).map(m => ({ id: m.id, title: m.title, score: Number(m.score), max: m.max_score == null ? null : Number(m.max_score), date: m.score_date, note: m.note || "" })),
   });
-  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", level: meta?.level_name || "", step: meta?.step_name || "", classDay: meta?.class_day || "", classTime: meta?.class_time || "", dayTimeHint, ...st, programId: prog?.programId || "", programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
+  return Response.json({ id: cp.cls.id, name: cp.cls.name, term: meta?.term || "", positionNote: meta?.position_note || "", level: meta?.level_name || "", step: meta?.step_name || "", classKind: meta?.class_kind || "", classDay: meta?.class_day || "", classTime: meta?.class_time || "", dayTimeHint, ...st, programId: prog?.programId || "", programWeeks: prog ? prog.weeks.map(w => ({ week_number: w.week_number, title: w.title })) : [], active: cp.people.filter(p => p.status === "active").map(learner), left: cp.people.filter(p => p.status === "left").map(learner) });
  },
  POST: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
@@ -90,6 +90,11 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    // «ترم» is no longer in the UI; old clients may still send it. Fields that are not sent stay untouched.
    if (body.term !== undefined) await DB.prepare("UPDATE classes SET term=? WHERE id=?").bind(clip(body.term, 80) || null, classId).run();
    if (body.positionNote !== undefined) await DB.prepare("UPDATE classes SET position_note=? WHERE id=?").bind(clip(body.positionNote, 300) || null, classId).run();
+   if (body.classKind !== undefined) {   // «نوع کلاس»: online / onsite, or empty (تعیین‌نشده)
+    const k = clip(body.classKind, 10);
+    if (k && k !== "online" && k !== "onsite") return jsonError("نوع کلاس نامعتبر است.");
+    await DB.prepare("UPDATE classes SET class_kind=? WHERE id=?").bind(k || null, classId).run();
+   }
    // «روز و ساعت کلاس»: only when sent; plain text, at most 40 characters, no HTML
    for (const [f, col] of [["classDay", "class_day"], ["classTime", "class_time"]] as const) {
     if (body[f] === undefined) continue;
@@ -112,6 +117,23 @@ export const Route = createFileRoute("/api/class-sheet")({ server: { handlers: {
    await DB.prepare("INSERT INTO class_removals(id,class_id,registry_id,user_id,person_name,removed_by) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(), classId, p.registryId, p.userId, p.name, user.id).run();
    if (p.userId) await DB.prepare("DELETE FROM class_members WHERE class_id=? AND user_id=?").bind(classId, p.userId).run();
    return Response.json({ ok: true, removed: p.name, className: cp.cls.name });
+  }
+
+  if (action === "find-learners") {   // accounts (learners) that are NOT yet in this class, by name / phone / email; staff of the class only (canManageClass above)
+   const q = clip(body.q, 60).toLowerCase(); if (q.length < 2) return jsonError("حداقل دو نویسه بنویسید.");
+   const like = "%" + q.replace(/[\\%_]/g, m => "\\" + m) + "%";
+   const rows = (await DB.prepare("SELECT u.id,u.display_name,u.email,u.phone FROM users u WHERE u.active=1 AND " + hasRoleSql("u", "memorizer") + " AND (LOWER(u.display_name) LIKE ? OR LOWER(COALESCE(u.email,'')) LIKE ? OR COALESCE(u.phone,'') LIKE ?) AND NOT EXISTS (SELECT 1 FROM class_members m WHERE m.class_id=? AND m.user_id=u.id) ORDER BY u.display_name LIMIT 15").bind(like, like, like, classId).all<any>()).results || [];
+   return Response.json({ learners: rows.map((u: any) => ({ id: u.id, name: u.display_name, phone: u.phone || "", email: u.email && !String(u.email).endsWith("@phone.invalid") ? u.email : "" })) });
+  }
+  if (action === "add-member") {   // same effect as the registry enrolment («ثبت قرآن‌آموزان در کلاس‌هایشان») but for one account and one class; idempotent
+   const userId = clip(body.userId, 80);
+   const u = await DB.prepare("SELECT u.id,u.display_name FROM users u WHERE u.id=? AND u.active=1 AND " + hasRoleSql("u", "memorizer")).bind(userId).first<{ id: string; display_name: string }>();
+   if (!u) return jsonError("قرآن‌آموز پیدا نشد.", 404);
+   const cls = await DB.prepare("SELECT name FROM classes WHERE id=?").bind(classId).first<{ name: string }>();
+   if (!cls) return jsonError("کلاس پیدا نشد.", 404);
+   await DB.prepare("DELETE FROM class_removals WHERE class_id=? AND user_id=?").bind(classId, u.id).run();   // an explicit add overrides an earlier removal
+   await DB.prepare("INSERT INTO class_members(class_id,user_id) VALUES(?,?) ON CONFLICT DO NOTHING").bind(classId, u.id).run();
+   return Response.json({ ok: true, added: u.display_name, className: cls.name });
   }
 
   if (action === "set-position") {   // the class's REAL week in its program: shifts the program start so that today falls in that week
