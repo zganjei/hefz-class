@@ -8,7 +8,7 @@ import { Registry } from "../components/registry";
 import { AdminRequests } from "../components/admin-requests";
 import { Exams } from "../components/exams";
 import { ClassSheets } from "../components/class-sheets";
-import { ChatTab } from "../components/class-chat";
+import { ChatTab, useChatUnread } from "../components/class-chat";
 import { navTo, useNavSegs, installBackGuard } from "../lib/nav";
 import { Landing } from "../components/landing";
 import { AdminSearch } from "../components/admin-search";
@@ -32,6 +32,7 @@ function Home(){
  const segs=useNavSegs();const uAdmin=hasRole(user,"admin");const view=user?resolveView(user,readStoredView(user.id)):null;const vAdmin=view==="admin",uStaff=view==="admin"||view==="teacher",uLearner=view==="memorizer";const allowedTabs=user?[...tabsForView(view),"profile"]:[];const defTab=tabsForView(view)[0]||"profile";const tab=allowedTabs.includes(segs[0])?segs[0]:defTab;
  const [searchOpen,setSearchOpen]=useState(false);
  const setTab=(t:string)=>navTo([t],"replace");
+ const chatUnread=useChatUnread(!!user&&(uStaff||uLearner),uStaff,tab);
  useEffect(()=>{if(user&&segs[0]!==tab)navTo([tab,...(segs[0]===tab?segs.slice(1):[])],"replace");},[user,segs.join("/")]);
  useEffect(()=>{if(!user)return;return installBackGuard();},[!!user]);
  const switchView=(r:AppRole)=>{if(!user)return;storeView(user.id,r);setViewRev(n=>n+1);navTo([tabsForView(r)[0]||"profile"],"replace");};
@@ -63,6 +64,6 @@ function Home(){
  {!tabsForView(view).length&&tab!=="profile"&&<p className="empty-state">حساب شما نقش «پشتیبان» دارد؛ فعلاً بخش جداگانه‌ای برای این نقش در برنامه نیست.</p>}
  {tab==="classes"&&isTeacher&&<ClassSheets user={user} classes={classes} onChanged={()=>void load()}/>}
  {tab==="exams"&&uLearner&&<Exams user={user} classes={classes}/>}
- {tab==="chat"&&(uLearner||uStaff)&&<ChatTab staff={uStaff} userId={user.id}/>}
- </div>{searchOpen&&vAdmin&&<AdminSearch onClose={()=>setSearchOpen(false)}/>}<Notice msg={nameMsg}/><nav className="m-bar">{bottom.map(b=><button key={b[0]} className={b[0]===tab?"on":""} onClick={()=>setTab(b[0])}><svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[({classes:"manage",manage:"learning",applications:"sliders",registry:"plan"} as Record<string,string>)[b[0]]||b[0]]}/></svg><span>{b[1]}</span></button>)}</nav></main>;
+ {tab==="chat"&&(uLearner||uStaff)&&<ChatTab staff={uStaff}/>}
+ </div>{searchOpen&&vAdmin&&<AdminSearch onClose={()=>setSearchOpen(false)}/>}<Notice msg={nameMsg}/><nav className="m-bar">{bottom.map(b=><button key={b[0]} className={b[0]===tab?"on":""} onClick={()=>setTab(b[0])}><svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[({classes:"manage",manage:"learning",applications:"sliders",registry:"plan"} as Record<string,string>)[b[0]]||b[0]]}/></svg><span>{b[1]}</span>{b[0]==="chat"&&chatUnread>0&&<i className="m-badge" aria-label={`${chatUnread} پیام نخوانده`}>{chatUnread>99?"99+":String(chatUnread).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[Number(d)])}</i>}</button>)}</nav></main>;
 }
