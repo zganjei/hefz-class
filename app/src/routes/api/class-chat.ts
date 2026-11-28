@@ -2,14 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
-import { canUseChat, deleteMessage, listMessages, postMessage } from "../../lib/class-chat.server";
+import { canUseChat, deleteMessage, listChats, listMessages, postMessage } from "../../lib/class-chat.server";
 
 // In-class group chat (text). Everyone in the class (members, the class's teachers, admins) reads and writes; delete: own message, or any message for admin / the class's teacher.
 export const Route = createFileRoute("/api/class-chat")({ server: { handlers: {
  GET: async ({ request }) => {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
-  const classId = new URL(request.url).searchParams.get("classId") || "";
+  const q = new URL(request.url).searchParams;
+  if (q.get("list")) return new Response(JSON.stringify({ chats: await listChats(DB, user, q.get("own") === "1") }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+  const classId = q.get("classId") || "";
   if (!(await canUseChat(DB, user, classId))) return jsonError("دسترسی به گفتگوی این کلاس ندارید.", 403);
   const messages = await listMessages(DB, user, classId, await canManageClass(DB, user, classId));
   return new Response(JSON.stringify({ messages }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });

@@ -15,7 +15,7 @@ async function call(method: "GET" | "POST" | "DELETE", path: string, body?: unkn
 const timeText = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? "" : d.toLocaleString("fa-IR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
 
 /** گفتگو: the group chat of one class (text). Newest at the bottom; polls every few seconds while open and the tab is visible. The server decides who may read/post/delete. */
-export function ClassChat({ classId }: { classId: string }) {
+export function ClassChat({ classId, onSeen }: { classId: string; onSeen?: (lastAt: string) => void }) {
   const [msgs, setMsgs] = useState<Msg[] | null>(null), [text, setText] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null), stick = useRef(true), last = useRef("");
   const load = useCallback(async () => {
@@ -30,7 +30,8 @@ export function ClassChat({ classId }: { classId: string }) {
     const tail = msgs?.length ? msgs[msgs.length - 1].id : "";
     if (tail && tail !== last.current && stick.current) endRef.current?.scrollIntoView({ block: "end" });
     last.current = tail;
-  }, [msgs]);
+    if (msgs?.length && onSeen) onSeen(msgs[msgs.length - 1].createdAt);
+  }, [msgs]);   // eslint-disable-line react-hooks/exhaustive-deps
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
     setBusy(true);
@@ -59,15 +60,45 @@ export function ClassChat({ classId }: { classId: string }) {
   </div>;
 }
 
-/** Learner's «گفتگو» tab: the chat of their class (a chooser when they are in several). */
-export function ChatTab({ classes }: { classes: { id: string; name: string }[] }) {
-  const [sel, setSel] = useState("");
-  const labels = displayClassNames(classes.map(c => c.name));
-  const id = classes.some(c => c.id === sel) ? sel : classes[0]?.id || "";
-  if (!id) return <section className="panel"><p className="empty-state">شما هنوز عضو کلاسی نیستید.</p></section>;
+type Chat = { classId: string; name: string; lastBody: string | null; lastAt: string | null; lastName: string | null; lastMine: boolean };
+const seenKey = (userId: string, classId: string) => `hefz-chat-seen:${userId}:${classId}`;
+const readSeen = (k: string) => { try { return window.localStorage.getItem(k) || ""; } catch { return ""; } };
+const markSeen = (k: string, at: string) => { try { window.localStorage.setItem(k, at); } catch { /* storage blocked: the dot just stays */ } };
+const listTime = (iso: string) => { const d = new Date(iso); if (isNaN(+d)) return ""; return new Date().toDateString() === d.toDateString() ? d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("fa-IR", { month: "short", day: "numeric" }); };
+
+/** «گفتگو» tab for every role: a list of chats (one per class). A learner's list holds exactly their class, a teacher's/admin's holds all classes. A list with a single chat opens it directly (no back button, no selector); otherwise tapping a row opens the chat with a back button. Unread dot = the newest message is from someone else and newer than what this device last saw. */
+export function ChatTab({ staff, userId }: { staff: boolean; userId: string }) {
+  const [chats, setChats] = useState<Chat[] | null>(null), [open, setOpen] = useState(""), [err, setErr] = useState("");
+  const load = useCallback(async () => {
+    try { const d = await call("GET", "/api/class-chat?list=1" + (staff ? "" : "&own=1")); setChats(d.chats); setErr(""); } catch (e: any) { setErr(e.message); }
+  }, [staff]);
+  useEffect(() => {
+    void load();
+    if (open) return;   // an open chat does its own polling
+    const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, POLL_MS);
+    return () => clearInterval(t);
+  }, [load, open]);
+  if (!chats) return <section className="panel"><h2>گفتگو</h2>{err ? <p className="error-msg">{err}</p> : <p className="empty-state">در حال بارگذاری…</p>}</section>;
+  if (!chats.length) return <section className="panel"><h2>گفتگو</h2><p className="empty-state">{staff ? "هنوز کلاسی نیست." : "شما هنوز عضو کلاسی نیستید."}</p></section>;
+  const labels = displayClassNames(chats.map(c => c.name));
+  const single = chats.length === 1;
+  const cur = single ? chats[0] : chats.find(c => c.classId === open);
+  if (cur) {
+    const lastAt = cur.lastAt;
+    return <section className="panel">
+      <div className="chat-bar">{!single && <button type="button" className="chat-back" aria-label="بازگشت به فهرست گفتگوها" onClick={() => { setOpen(""); void load(); }}>→ بازگشت</button>}<h2>{labels[chats.indexOf(cur)]}</h2></div>
+      <ClassChat classId={cur.classId} onSeen={at => markSeen(seenKey(userId, cur.classId), at || lastAt || "")} />
+    </section>;
+  }
   return <section className="panel">
-    <h2>گفتگوی کلاس</h2>
-    {classes.length > 1 && <label>کلاس<select value={id} onChange={e => setSel(e.target.value)}>{classes.map((c, i) => <option key={c.id} value={c.id}>{labels[i]}</option>)}</select></label>}
-    <ClassChat classId={id} />
+    <h2>گفتگوها</h2>
+    <ul className="chat-rows">{chats.map((c, i) => {
+      const unread = !!c.lastAt && !c.lastMine && c.lastAt > readSeen(seenKey(userId, c.classId));
+      return <li key={c.classId}><button type="button" className={"chat-row" + (unread ? " unread" : "")} onClick={() => setOpen(c.classId)}>
+        <span className="chat-row-top"><b>{labels[i]}</b>{c.lastAt && <small>{listTime(c.lastAt)}</small>}</span>
+        <span className="chat-row-bot"><span className="chat-prev">{c.lastBody ? (c.lastMine ? "شما: " : c.lastName ? c.lastName + ": " : "") + c.lastBody : "هنوز پیامی نیست"}</span>{unread && <i className="chat-dot" aria-label="پیام جدید" />}</span>
+      </button></li>;
+    })}</ul>
+    {err && <p className="error-msg">{err}</p>}
   </section>;
 }
