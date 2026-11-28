@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bindings } from "../../lib/bindings.server";
 import { currentUser, jsonError } from "../../lib/auth.server";
 import { canManageClass } from "../../lib/access.server";
-import { canUseChat, deleteMessage, listChats, listMessages, postMessage } from "../../lib/class-chat.server";
+import { canUseChat, deleteMessage, listChats, listMessages, markRead, postMessage } from "../../lib/class-chat.server";
 
 // In-class group chat (text). Everyone in the class (members, the class's teachers, admins) reads and writes; delete: own message, or any message for admin / the class's teacher.
 export const Route = createFileRoute("/api/class-chat")({ server: { handlers: {
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/api/class-chat")({ server: { handlers: {
   const user = await currentUser(request); if (!user) return jsonError("ابتدا وارد شوید.", 401);
   const { DB } = bindings(); if (!DB) return jsonError("پایگاه داده آماده نیست.", 503);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (body?.action === "read") { const m = await markRead(DB, user, body.classId); return m.ok ? Response.json({ read: true }) : jsonError(m.error, m.status); }
   const r = await postMessage(DB, user, body?.classId, body?.text);
   return r.ok ? Response.json({ id: r.id }) : jsonError(r.error, r.status);
  },

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { displayClassNames } from "../lib/teacher-name";
 
 const fa = (n: number | string) => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
-const MAX = 2000, POLL_MS = 8000;
+const MAX = 2000, POLL_MS = 8000, CHANGED = "hefz-chat-changed";
+const badge = (n: number) => n > 99 ? "99+" : fa(n);
 
 type Msg = { id: string; userId: string; name: string; body: string; createdAt: string; mine: boolean; canDelete: boolean };
 
@@ -15,14 +16,14 @@ async function call(method: "GET" | "POST" | "DELETE", path: string, body?: unkn
 const timeText = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? "" : d.toLocaleString("fa-IR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); };
 
 /** گفتگو: the group chat of one class (text). Newest at the bottom; polls every few seconds while open and the tab is visible. The server decides who may read/post/delete. */
-export function ClassChat({ classId, onSeen }: { classId: string; onSeen?: (lastAt: string) => void }) {
+export function ClassChat({ classId }: { classId: string }) {
   const [msgs, setMsgs] = useState<Msg[] | null>(null), [text, setText] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null), stick = useRef(true), last = useRef("");
+  const endRef = useRef<HTMLDivElement>(null), stick = useRef(true), last = useRef(""), marked = useRef("");
   const load = useCallback(async () => {
     try { const d = await call("GET", "/api/class-chat?classId=" + encodeURIComponent(classId)); setMsgs(d.messages); setErr(""); } catch (e: any) { setErr(e.message); }
   }, [classId]);
   useEffect(() => {
-    setMsgs(null); stick.current = true; last.current = ""; void load();
+    setMsgs(null); stick.current = true; last.current = ""; marked.current = ""; void load();
     const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, POLL_MS);
     return () => clearInterval(t);
   }, [load]);
@@ -30,7 +31,7 @@ export function ClassChat({ classId, onSeen }: { classId: string; onSeen?: (last
     const tail = msgs?.length ? msgs[msgs.length - 1].id : "";
     if (tail && tail !== last.current && stick.current) endRef.current?.scrollIntoView({ block: "end" });
     last.current = tail;
-    if (msgs?.length && onSeen) onSeen(msgs[msgs.length - 1].createdAt);
+    if (tail && tail !== marked.current && document.visibilityState === "visible") { marked.current = tail; void call("POST", "/api/class-chat", { action: "read", classId }).then(() => window.dispatchEvent(new Event(CHANGED)), () => { marked.current = ""; }); }   // opened / new messages while open = read (server-side marker)
   }, [msgs]);   // eslint-disable-line react-hooks/exhaustive-deps
   const send = async () => {
     const t = text.trim(); if (!t || busy) return;
@@ -60,14 +61,11 @@ export function ClassChat({ classId, onSeen }: { classId: string; onSeen?: (last
   </div>;
 }
 
-type Chat = { classId: string; name: string; lastBody: string | null; lastAt: string | null; lastName: string | null; lastMine: boolean };
-const seenKey = (userId: string, classId: string) => `hefz-chat-seen:${userId}:${classId}`;
-const readSeen = (k: string) => { try { return window.localStorage.getItem(k) || ""; } catch { return ""; } };
-const markSeen = (k: string, at: string) => { try { window.localStorage.setItem(k, at); } catch { /* storage blocked: the dot just stays */ } };
+type Chat = { classId: string; name: string; lastBody: string | null; lastAt: string | null; lastName: string | null; lastMine: boolean; unread: number };
 const listTime = (iso: string) => { const d = new Date(iso); if (isNaN(+d)) return ""; return new Date().toDateString() === d.toDateString() ? d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("fa-IR", { month: "short", day: "numeric" }); };
 
-/** «گفتگو» tab for every role: a list of chats (one per class). A learner's list holds exactly their class, a teacher's/admin's holds all classes. A list with a single chat opens it directly (no back button, no selector); otherwise tapping a row opens the chat with a back button. Unread dot = the newest message is from someone else and newer than what this device last saw. */
-export function ChatTab({ staff, userId }: { staff: boolean; userId: string }) {
+/** «گفتگو» tab for every role: a list of chats (one per class). A learner's list holds exactly their class, a teacher's/admin's holds all classes. A list with a single chat opens it directly (no back button, no selector); otherwise tapping a row opens the chat with a back button. Each row shows the server-side unread count (synced across devices); opening a chat marks it read. */
+export function ChatTab({ staff }: { staff: boolean }) {
   const [chats, setChats] = useState<Chat[] | null>(null), [open, setOpen] = useState(""), [err, setErr] = useState("");
   const load = useCallback(async () => {
     try { const d = await call("GET", "/api/class-chat?list=1" + (staff ? "" : "&own=1")); setChats(d.chats); setErr(""); } catch (e: any) { setErr(e.message); }
@@ -84,21 +82,36 @@ export function ChatTab({ staff, userId }: { staff: boolean; userId: string }) {
   const single = chats.length === 1;
   const cur = single ? chats[0] : chats.find(c => c.classId === open);
   if (cur) {
-    const lastAt = cur.lastAt;
     return <section className="panel">
       <div className="chat-bar">{!single && <button type="button" className="chat-back" aria-label="بازگشت به فهرست گفتگوها" onClick={() => { setOpen(""); void load(); }}>→ بازگشت</button>}<h2>{labels[chats.indexOf(cur)]}</h2></div>
-      <ClassChat classId={cur.classId} onSeen={at => markSeen(seenKey(userId, cur.classId), at || lastAt || "")} />
+      <ClassChat classId={cur.classId} />
     </section>;
   }
   return <section className="panel">
     <h2>گفتگوها</h2>
     <ul className="chat-rows">{chats.map((c, i) => {
-      const unread = !!c.lastAt && !c.lastMine && c.lastAt > readSeen(seenKey(userId, c.classId));
+      const unread = c.unread > 0;
       return <li key={c.classId}><button type="button" className={"chat-row" + (unread ? " unread" : "")} onClick={() => setOpen(c.classId)}>
         <span className="chat-row-top"><b>{labels[i]}</b>{c.lastAt && <small>{listTime(c.lastAt)}</small>}</span>
-        <span className="chat-row-bot"><span className="chat-prev">{c.lastBody ? (c.lastMine ? "شما: " : c.lastName ? c.lastName + ": " : "") + c.lastBody : "هنوز پیامی نیست"}</span>{unread && <i className="chat-dot" aria-label="پیام جدید" />}</span>
+        <span className="chat-row-bot"><span className="chat-prev">{c.lastBody ? (c.lastMine ? "شما: " : c.lastName ? c.lastName + ": " : "") + c.lastBody : "هنوز پیامی نیست"}</span>{unread && <span className="chat-badge" aria-label={`${fa(c.unread)} پیام نخوانده`}>{badge(c.unread)}</span>}</span>
       </button></li>;
     })}</ul>
     {err && <p className="error-msg">{err}</p>}
   </section>;
+}
+
+/** Total unread over all chats for the bottom-nav «گفتگو» tab: one list call every 30 s (visible tab only), plus a refetch whenever a chat marks itself read. */
+export function useChatUnread(enabled: boolean, staff: boolean, tab: string): number {
+  const [n, setN] = useState(0);
+  const load = useCallback(async () => {
+    try { const d = await call("GET", "/api/class-chat?list=1" + (staff ? "" : "&own=1")); setN((d.chats as Chat[]).reduce((a, c) => a + (c.unread || 0), 0)); } catch { /* keep the last count */ }
+  }, [staff]);
+  useEffect(() => {
+    if (!enabled) { setN(0); return; }
+    void load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 30000);
+    window.addEventListener(CHANGED, load);
+    return () => { clearInterval(t); window.removeEventListener(CHANGED, load); };
+  }, [enabled, load, tab]);
+  return n;
 }

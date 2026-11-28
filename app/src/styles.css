@@ -478,6 +478,8 @@ video.vid-frame{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px}
 .chat-row-top small{color:var(--tx-9a9e91);flex:none}
 .chat-prev{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:var(--tx-9a9e91)}
 .chat-row.unread .chat-prev{color:inherit;font-weight:600}
-.chat-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--tx-415b49)}
+.chat-badge,.m-badge{flex:none;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#174b3b;color:#fff;font-weight:700;font-size:12px;line-height:22px;font-style:normal;text-align:center;box-sizing:border-box}
+.m-bar button{position:relative}
+.m-badge{position:absolute;top:6px;inset-inline-start:calc(50% + 4px);min-width:20px;height:20px;line-height:20px;font-size:11px;background:#b3261e}
 .chat-form{display:flex;flex-direction:column;gap:6px}
 .chat-form textarea{width:100%;min-height:56px;resize:vertical;font:inherit;font-size:16px}
